@@ -4,9 +4,6 @@ from pathlib import Path
 from django.core.management.utils import get_random_secret_key
 from dotenv import load_dotenv
 
-from .constants import PAGINATION_SIZE
-from .constants import DEFAULT_ALLOWED_HOSTS
-
 
 load_dotenv()
 
@@ -15,6 +12,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', get_random_secret_key())
 
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+
+# Константа, определяет адреса разрешённых доменов поумолчанию.
+DEFAULT_ALLOWED_HOSTS = 'localhost;127.0.0.1'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', DEFAULT_ALLOWED_HOSTS).split(';')
 
@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'djoser',
     'django_filters',
+    'api.apps.ApiConfig',
     'recipes.apps.RecipesConfig',
     'users.apps.UsersConfig',
 ]
@@ -122,6 +123,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.User'
 
+# Константа, определяет количество отображаемых рецептов на странице.
+PAGINATION_SIZE = 6
+
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -134,4 +138,18 @@ REST_FRAMEWORK = {
 }
 
 # DJOSER = {
-    
+
+# Максимальная длина email-адреса.
+EMAIL_MAX_LENGTH = 254
+
+# Максимальная длина ника пользователя.
+USERNAME_MAX_LENGTH = 150
+
+# Шаблон ника пользователя.
+USERNAME_REGEX = r'^[\w.@+-]+$'
+
+# Максимальная длина ника пользователя в админ-панеле.
+USERNAME_ADMIN_LENGTH = 150
+
+# Список запрещенных ников пользователей.
+FORBIDDEN_USERNAMES = ['me',]

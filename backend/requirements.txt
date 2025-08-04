@@ -21,6 +21,7 @@ Jinja2==3.1.6
 MarkupSafe==3.0.2
 oauthlib==3.3.1
 packaging==25.0
+Pillow==9.3.0
 pluggy==1.0.0.dev0
 py==1.11.0
 pycparser==2.22
