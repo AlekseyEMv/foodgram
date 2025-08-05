@@ -1,6 +1,8 @@
 from django.contrib import admin
+from django.contrib.auth import get_user_model
 
-from users.models import User
+
+User = get_user_model()
 
 
 @admin.register(User)
@@ -11,22 +13,30 @@ class UserAdmin(admin.ModelAdmin):
     Настройки:
     - list_display: поля для отображения в списке пользователей
     - search_fields: поля для поиска
+    - list_filter: поля для фильтрации
     - list_display_links: поля, по которым можно перейти к редактированию
+    - empty_value_display: пояснение для необязательных полей
     - ordering: порядок сортировки
     """
 
     list_display = (
-        'username',    # Никнейм пользователя
+        'id',          # ID пользователя
         'email',       # Email пользователя
+        'username',    # Никнейм пользователя
         'first_name',  # Имя пользователя
         'last_name',   # Фамилия пользователя
     )
     search_fields = (
-        'username',
         'email',
+        'username',
+    )
+    list_filter = (        
+        'username',
+        'email'
     )
     list_display_links = (
         'username',
         'email',
     )
+    empty_value_display = 'Не задано'
     ordering = ('id',)
