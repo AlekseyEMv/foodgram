@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 
+from foodgram_backend.settings import ADMIN_EMPTY_VALUE
+
 
 User = get_user_model()
 
@@ -38,5 +40,5 @@ class UserAdmin(admin.ModelAdmin):
         'username',
         'email',
     )
-    empty_value_display = 'Не задано'
+    empty_value_display = ADMIN_EMPTY_VALUE
     ordering = ('id',)

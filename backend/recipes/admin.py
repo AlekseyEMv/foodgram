@@ -1,3 +1,72 @@
 from django.contrib import admin
 
-# Register your models here.
+from foodgram_backend.settings import ADMIN_EMPTY_VALUE
+from .models import (
+    FavoriteRecipe,
+    Follow,
+    Ingredient,
+    IngredientRecipe,
+    Recipe,
+    ShoppingRecipe,b
+    Tag
+)
+
+@admin.register(FavoriteRecipe)
+class FavoriteRecipeAdmin(admin.ModelAdmin):
+    """
+    Настройки:
+    - list_display: поля для отображения
+    - search_fields: поля для поиска
+    - list_filter: поля для фильтрации
+    - list_display_links: поля, по которым можно перейти к редактированию
+    - empty_value_display: пояснение для необязательных полей
+    - ordering: порядок сортировки
+    """
+
+    list_display = ('id', 'user', 'recipe')
+    # search_fields = (
+    #     'email',
+    #     'username',
+    # )
+    # list_filter = (        
+    #     'username',
+    #     'email'
+    # )    
+    empty_value_display = ADMIN_EMPTY_VALUE
+    ordering = ('id',)
+
+
+    
+#     @admin.register(User)
+# class UserAdmin(admin.ModelAdmin):
+#     """
+#     Настройки:
+#     - list_display: поля для отображения в списке пользователей
+#     - search_fields: поля для поиска
+#     - list_filter: поля для фильтрации
+#     - list_display_links: поля, по которым можно перейти к редактированию
+#     - empty_value_display: пояснение для необязательных полей
+#     - ordering: порядок сортировки
+#     """
+
+#     list_display = (
+#         'id',          # ID пользователя
+#         'email',       # Email пользователя
+#         'username',    # Никнейм пользователя
+#         'first_name',  # Имя пользователя
+#         'last_name',   # Фамилия пользователя
+#     )
+#     search_fields = (
+#         'email',
+#         'username',
+#     )
+#     list_filter = (        
+#         'username',
+#         'email'
+#     )
+#     list_display_links = (
+#         'username',
+#         'email',
+#     )
+#     empty_value_display = 'Не задано'
+#     ordering = ('id',)

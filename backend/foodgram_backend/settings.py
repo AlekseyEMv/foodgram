@@ -25,8 +25,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
     'rest_framework.authtoken',
+    'rest_framework',
     'djoser',
     'django_filters',
     'api.apps.ApiConfig',
@@ -66,7 +66,6 @@ WSGI_APPLICATION = 'foodgram_backend.wsgi.application'
 
 IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'True').lower() == 'true'
 
-
 if IS_POSTGRESQL_ENGINE:
     DATABASES = {
         'default': {
@@ -85,7 +84,6 @@ else:
             'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
         }
     }
-
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -112,7 +110,6 @@ USE_L10N = True
 
 USE_TZ = True
 
-
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'collected_static')
 
@@ -137,7 +134,9 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': PAGINATION_SIZE,
 }
 
-# DJOSER = {
+
+# Строка для пустых ячеек админ-панели
+ADMIN_EMPTY_VALUE = 'Не задано'
 
 # Максимальная длина строки в админ-панеле.
 ADMIN_MAX_LENGTH = 32
