@@ -1,3 +1,7 @@
 from django.shortcuts import render
+from rest_framework import viewsets as vs
 
-# Create your views here.
+
+class IngredientsViewSet(vs.ModelViewSet):
+    """
+    """

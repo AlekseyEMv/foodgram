@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-# from api.views import 
+from api.views import IngredientsViewSet
 
 router = DefaultRouter()
 router.register('ingredients', IngredientsViewSet, basename='ingredients')
@@ -18,8 +18,8 @@ router.register('ingredients', IngredientsViewSet, basename='ingredients')
 
 
 auth_patterns = [
-    path('token/login/', ..., name='login'),
-    path('token/logout/', ..., name='logout'),
+    # path('token/login/', ..., name='login'),
+    # path('token/logout/', ..., name='logout'),
     path('', include('djoser.urls')),
     path('', include('djoser.urls.authtoken')),
 ]
