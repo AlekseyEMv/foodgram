@@ -1,8 +1,11 @@
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
+from djoser.views import UserViewSet
 from rest_framework import filters, viewsets as vs
 
-from api.serializer import IngredientSerializer, TagSerializer
+from api.serializer import (
+    CustomUserSerializer, IngredientSerializer, TagSerializer
+)
 from recipes.models import Ingredient, Tag
 
 
@@ -27,6 +30,11 @@ class IngredientsViewSet(vs.ReadOnlyModelViewSet):
     search_fields = ('i^name',)
 
 
+class RecipesViewSet(vs.ModelViewSet):
+    """
+    """
+
+
 class TagsViewSet(vs.ReadOnlyModelViewSet):
     """
     Представление для работы с тегами.
@@ -41,3 +49,8 @@ class TagsViewSet(vs.ReadOnlyModelViewSet):
     """
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
+
+
+class CustomUserViewSet(UserViewSet):
+    """
+    """
