@@ -27,3 +27,16 @@ class IngredientSerializer(ss.ModelSerializer):
     class Meta:
         model = Ingredient
         fields = ('id', 'name', 'measurement_unit',)
+
+
+class TagSerializer(ss.ModelSerializer):
+    """
+    Сериализатор для работы с тегами.
+
+    Отвечает за преобразование объектов модели Tags в JSON формат
+    и обратно при необходимости. Определяет структуру данных,
+    которые будут передаваться через API.
+    """
+    class Meta:
+        model = Tag
+        fields = ('id', 'name', 'slug',)
