@@ -2,12 +2,11 @@ from django.contrib import admin
 
 from foodgram_backend.settings import ADMIN_EMPTY_VALUE
 from .models import (
-    FavoriteRecipe,
-    Follow,
+    FavoriteRecipe,    
     Ingredient,
     IngredientRecipe,
     Recipe,
-    ShoppingRecipe,b
+    ShoppingRecipe,
     Tag
 )
 

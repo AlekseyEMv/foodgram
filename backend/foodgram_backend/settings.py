@@ -25,8 +25,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework.authtoken',
     'rest_framework',
+    'rest_framework.authtoken',
     'djoser',
     'django_filters',
     'api.apps.ApiConfig',
@@ -125,13 +125,14 @@ PAGINATION_SIZE = 6
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': PAGINATION_SIZE,
+    'MAX_PAGE_SIZE': 1000,
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.UserRateThrottle',
         'rest_framework.throttling.AnonRateThrottle',
@@ -139,9 +140,23 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'user': '10000/day',
         'anon': '1000/day',
+        'burst': '10/minute',
     }
 }
 
+DJOSER = {
+    'HIDE_USERS': False,
+    'LOGIN_FIELD': 'email',
+    'PERMISSIONS': {
+        'user': ['rest_framework.permissions.IsAuthenticated'],
+        'user_list': ['rest_framework.permissions.IsAuthenticatedOrReadOnly'],
+        'user_create': ['rest_framework.permissions.AllowAny'],
+        'set_password': ['djoser.permissions.CurrentUserOrAdmin'],
+    },
+    'SERIALIZERS': {
+        'user': 'users.serializers.CustomUserSerializer',
+    },
+}
 
 # Строка для пустых ячеек админ-панели
 ADMIN_EMPTY_VALUE = 'Не задано'
@@ -178,3 +193,9 @@ USERNAME_REGEX = r'^[\w.@+-]+$'
 
 # Список запрещенных ников пользователей.
 FORBIDDEN_USERNAMES = ['me',]
+
+# Минимальная длина пароля
+MIN_PASSWORD_LEN = 8
+
+# Максимальная размер аватара
+AVATAR_MAX_LENGTH = 1024 ** 2

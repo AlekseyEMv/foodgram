@@ -150,7 +150,6 @@ class Recipe(ms.Model):
     tags = ms.ManyToManyField(
         Tag,
         blank=True,
-        null=True,
         verbose_name='Теги'
     )
     cooking_time = ms.PositiveSmallIntegerField(
@@ -329,67 +328,3 @@ class ShoppingRecipe(UsingRecipe):
     class Meta(UsingRecipe.Meta):
         verbose_name = "Покупка"
         verbose_name_plural = "Покупки"
-
-
-class Follow(ms.Model):
-    """Модель подписки пользователя на автора.
-
-    Позволяет пользователям подписываться на других пользователей (авторов),
-    фиксируя дату подписки.
-    Гарантирует уникальность связи подписчик - автор.
-
-    Атрибуты:
-        user: Подписчик. Связь с моделью User через ForeignKey.
-        author: Автор, на которого подписываются.
-            Связь с моделью User через ForeignKey.
-        sub_date: Дата и время подписки (автоматически заполняется
-            при создании).
-
-    Meta:
-        verbose_name: Название модели в единственном числе для админ-панели.
-        verbose_name_plural: Название модели во множественном числе.
-        constraints: Ограничения модели, включая уникальность пары
-            пользователь - автор.
-
-    Методы:
-        __str__: Возвращает строковое представление
-            в формате «Пользователь подписан на Автор».
-
-    Пример использования:
-        >>> follow = Follow.objects.create(user=user1, author=user2)
-        >>> print(follow)
-        "user1 подписан на user2"
-
-    Особенности:
-        Гарантирует уникальность связки подписчик - автор.
-        При удалении пользователей автоматически удаляется связь.
-    """
-    user = ms.ForeignKey(
-        User,
-        on_delete=ms.CASCADE,
-        related_name='follower',
-        verbose_name='Подписчик'
-    )
-    author = ms.ForeignKey(
-        User,
-        on_delete=ms.CASCADE,
-        related_name='following',
-        verbose_name='Автор'
-    )
-    sub_date = ms.DateTimeField(
-        auto_now_add=True,
-        verbose_name='Дата подписки'
-    )
-
-    class Meta:
-        verbose_name = 'Подписка'
-        verbose_name_plural = 'Подписки'
-        constraints = [
-            ms.UniqueConstraint(
-                fields=['user', 'author'],
-                name='unique_followings'
-            ),
-        ]
-
-    def __str__(self):
-        return f'{self.user} подписан на {self.author}'

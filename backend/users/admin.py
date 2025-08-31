@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 
 from foodgram_backend.settings import ADMIN_EMPTY_VALUE
 
+from .models import Follow
 
 User = get_user_model()
 
