@@ -26,6 +26,11 @@ class IsSuperUserOrAuthorOrReadOnly(BasePermission):
         )
 
 
+class AllowGET(BasePermission):
+    def has_permission(self, request, view):
+        return request.method == 'GET'
+
+
 class IsAuthenticatedAndActive(BasePermission):
     def has_permission(self, request, view):
         return (

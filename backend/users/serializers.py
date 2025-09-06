@@ -6,7 +6,9 @@ from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers as ss
 from rest_framework.validators import UniqueValidator, UniqueTogetherValidator
 
+from api.serializers import BaseRecipeSerializer
 from foodgram_backend.settings import AVATAR_MAX_LENGTH, MIN_PASSWORD_LEN
+from .mixins import SubscriptionValidationMixin
 from .models import Follow
 
 
@@ -14,26 +16,11 @@ User = get_user_model()
 
 
 class CustomUserSerializer(UserSerializer):
-    """
-    Сериализатор для работы с пользовательскими данными.
-
-    Предоставляет полный набор полей для работы с пользователем,
-    включая информацию о подписке текущего пользователя на
-    данного пользователя.
-
-    Атрибут:
-        is_subscribed: Флаг подписки текущего пользователя
-    """
     is_subscribed = ss.SerializerMethodField(
         help_text='Флаг подписки текущего пользователя на данного пользователя'
     )
 
     class Meta:
-        """
-        Настройки сериализатора.
-
-        Определяет модель и поля для сериализации.
-        """
         model = User
         fields = (
             'id',
@@ -62,15 +49,6 @@ class CustomUserSerializer(UserSerializer):
         }
 
     def get_is_subscribed(self, obj):
-        """
-        Метод для получения статуса подписки.
-
-        Аргумент:
-            obj: Объект пользователя
-
-        Возвращает:
-            True если текущий пользователь подписан, иначе False
-        """
         request = self.context.get('request')
         if not request:
             return False
@@ -82,39 +60,19 @@ class CustomUserSerializer(UserSerializer):
         )
 
     def create(self, validated_data):
-        """
-        Метод для создания нового пользователя.
-
-        Аргумент:
-            validated_data: Валидированные данные для создания пользователя
-
-        Возвращает:
-            User: Созданный объект пользователя
-
-        Возбуждает:
-            ValidationError: При ошибке создания пользователя
-        """
         try:
             return User.objects.create_user(**validated_data)
         except IntegrityError:
-            raise ValidationError({'detail': 'Ошибка создания пользователя'})
+            raise ValidationError({'detail': 'Ошибка создания пользователя.'})
         except Exception as e:
             raise ValidationError({'detail': str(e)})
 
 
 class AvatarSerializer(ss.ModelSerializer):
-    """
-    Сериализатор для работы с аватаром пользователя.
-
-    Позволяет обновлять аватар пользователя в формате base64.
-
-    Атрибут:
-        avatar: Поле для загрузки аватара.
-    """
     avatar = Base64ImageField(
         required=False,
         allow_null=True,
-        max_length=AVATAR_MAX_LENGTH,  # 1MB
+        max_length=AVATAR_MAX_LENGTH,
         help_text="Аватар пользователя в формате base64"
     )
 
@@ -134,16 +92,20 @@ class AvatarSerializer(ss.ModelSerializer):
         }
 
 
-class SubscribeSerializer(ss.ModelSerializer):
+class SubscribeSerializer(SubscriptionValidationMixin, ss.ModelSerializer):
     user = ss.PrimaryKeyRelatedField(
         read_only=True,
         default=ss.CurrentUserDefault(),
-        help_text='Текущий пользователь, создающий подписку'
+        help_text='Текущий пользователь, создающий подписку.'
+    )
+    author = ss.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        help_text='Пользователь, на которого подписываемся.'
     )
 
     class Meta:
         model = Follow
-        fields = ('user',)
+        fields = ('user', 'author')
         validators = [
             UniqueTogetherValidator(
                 queryset=Follow.objects.all(),
@@ -152,33 +114,15 @@ class SubscribeSerializer(ss.ModelSerializer):
             ),
         ]
 
-    def create(self, validated_data):
-        author_id = self.context['view'].kwargs.get('pk')
-        try:
-            author = User.objects.get(id=author_id)
-        except User.DoesNotExist:
-            raise ss.ValidationError('Пользователь не найден')
-        validated_data['author'] = author
-        return super().create(validated_data)
-
     def validate(self, data):
-        current_user = self.context['request'].user
-        author_id = self.context['view'].kwargs.get('pk')
-        try:
-            target_user = User.objects.get(id=author_id)
-        except User.DoesNotExist:
-            raise ss.ValidationError('Пользователь не найден')
-        if not current_user.is_authenticated:
-            raise ss.ValidationError('Авторизация требуется для подписки')
-        if current_user == target_user:
-            raise ss.ValidationError(
-                'Операция подписки на собственный аккаунт не допускается'
-            )
-        if not target_user.is_active:
-            raise ss.ValidationError(
-                'Невозможно подписаться на неактивного пользователя'
-            )
+        self._validate_context()
+        self._validate_user()
+        self._validate_author()
+        data['author'] = self._get_author()
         return data
+
+    def create(self, validated_data):
+        return super().create(validated_data)
 
 
 class SubscriptionsSerializer(CustomUserSerializer):
@@ -204,3 +148,24 @@ class SubscriptionsSerializer(CustomUserSerializer):
             'last_name',
             'avatar',
         )
+
+    def get_recipes_count(self, user):
+        return user.recipes.count()
+
+    def get_recipes(self, user):
+        request = self.context.get('request')
+        recipes_limit = request.GET.get('recipes_limit')
+
+        recipes = user.recipes.all()
+
+        if recipes_limit:
+            try:
+                recipes_limit = int(recipes_limit)
+                if recipes_limit < 0:
+                    raise ValueError
+                recipes = recipes[:recipes_limit]
+            except (ValueError, TypeError):
+                raise ValidationError({'recipes_limit': 'Неверное значение'})
+
+        serializer = BaseRecipeSerializer(recipes, many=True)
+        return serializer.data

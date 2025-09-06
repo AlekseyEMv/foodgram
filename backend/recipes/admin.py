@@ -2,15 +2,15 @@ from django.contrib import admin
 
 from foodgram_backend.settings import ADMIN_EMPTY_VALUE
 from .models import (
-    FavoriteRecipe,    
+    Favorite,
     Ingredient,
     IngredientRecipe,
     Recipe,
-    ShoppingRecipe,
+    Shopping,
     Tag
 )
 
-@admin.register(FavoriteRecipe)
+@admin.register(Favorite)
 class FavoriteRecipeAdmin(admin.ModelAdmin):
     """
     Настройки:

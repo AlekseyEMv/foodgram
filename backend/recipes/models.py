@@ -1,6 +1,9 @@
 from django.db import models as ms
 from django.contrib.auth import get_user_model
-from django.core.validators import MinValueValidator
+from django.core.validators import (
+    FileExtensionValidator, MinLengthValidator, MinValueValidator
+)
+from django.urls import reverse
 
 from foodgram_backend.settings import (
     ADMIN_MAX_LENGTH,
@@ -8,6 +11,7 @@ from foodgram_backend.settings import (
     INGRIGIENTS_MIN_VALUE,
     MIN_COOKING_TIME,
     RECIPE_MAX_LENGTH,
+    RECIPE_MIN_LENGTH,
     TAG_MAX_LENGTH,
     UNIT_MAX_LENGTH
 )
@@ -99,35 +103,6 @@ class Tag(ms.Model):
 
 
 class Recipe(ms.Model):
-    """Модель рецепта, содержащая основную информацию о блюде.
-
-    Атрибуты:
-        author: Ссылка на автора рецепта. При удалении пользователя
-            все его рецепты также удаляются каскадно.
-        name: Название рецепта. Максимальная длина - RECIPE_MAX_LENGTH.
-        image: Изображение блюда. Сохраняется в 'recipes/images/'.
-            Может быть пустым.
-        text: Подробное описание процесса приготовления.
-        ingredients: Ингредиенты через промежуточную модель IngredientRecipe.
-            Позволяет указать количество каждого ингредиента.
-        tags: Теги для категоризации рецепта. Может быть пустым.
-        cooking_time: Время приготовления в минутах. Минимальное значение - 1.
-        pub_date: Дата публикации. Устанавливается автоматически при создании.
-
-    Валидаторы:
-        MinValueValidator - гарантирует, что время приготовления
-        блюда не меньше 1 минуты.
-
-    Класс Meta:
-        default_related_name: Имя для обратной связи user.recipes.all().
-        verbose_name: Название модели в единственном числе для админ-панели.
-        verbose_name_plural: Название модели во множественном числе.
-        ordering: Сортировка по умолчанию (сначала новые рецепты).
-
-    Методы:
-        __str__: Возвращает строковое представление модели (для админки
-        и отладки) в формате «Название», ограниченное 32 символами
-    """
     author = ms.ForeignKey(
         User,
         on_delete=ms.CASCADE,
@@ -136,12 +111,21 @@ class Recipe(ms.Model):
     name = ms.CharField(
         max_length=RECIPE_MAX_LENGTH,
         verbose_name='Название',
+        validators=[
+            MinLengthValidator(
+                RECIPE_MIN_LENGTH,
+                f'Название должно быть не менее {RECIPE_MIN_LENGTH} символов.'
+            )
+        ]
     )
     image = ms.ImageField(
         upload_to='recipes/images/',
         blank=True,
         null=True,
-        verbose_name='Картинка'
+        verbose_name='Картинка',
+        validators=[
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png'])
+        ]
     )
     text = ms.TextField('Описание')
     ingredients = ms.ManyToManyField(
@@ -177,6 +161,9 @@ class Recipe(ms.Model):
 
     def __str__(self):
         return self.name[:ADMIN_MAX_LENGTH]
+
+    def get_absolute_url(self):
+        return reverse('recipe-detail', kwargs={'pk': self.pk})
 
 
 class IngredientRecipe(ms.Model):
@@ -300,7 +287,7 @@ class UsingRecipe(ms.Model):
         ]
 
 
-class FavoriteRecipe(UsingRecipe):
+class Favorite(UsingRecipe):
     """
     Модель для хранения избранных рецептов пользователя.
 
@@ -315,7 +302,7 @@ class FavoriteRecipe(UsingRecipe):
         verbose_name_plural = 'Избранные рецепты'
 
 
-class ShoppingRecipe(UsingRecipe):
+class Shopping(UsingRecipe):
     """
     Модель для списка покупок, связанных с рецептами.
 

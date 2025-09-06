@@ -158,8 +158,7 @@ class Follow(ms.Model):
         constraints = [
             ms.UniqueConstraint(
                 fields=['user', 'author'],
-                name='unique_followings',
-                violation_error_message='Пользователь уже подписан на этого автора'
+                name='unique_followings'
             ),
         ]
         ordering = ['-sub_date']

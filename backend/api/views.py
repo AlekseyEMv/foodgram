@@ -1,18 +1,28 @@
 from django.contrib.auth import get_user_model
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
-# from django_filters.rest_framework import DjangoFilterBackend
-# from djoser.views import UserViewSet
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from rest_framework import status, viewsets as vs
 from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter
+from rest_framework.filters import DjangoFilterBackend, SearchFilter
 from rest_framework.mixins import CreateModelMixin, DestroyModelMixin
 from rest_framework.pagination import PageNumberPagination
-# from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import OR
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .serializers import IngredientSerializer, TagSerializer
-from .permissions import IsAuthenticatedAndActive, IsSuperUser
-from recipes.models import Ingredient, Tag
+from .filters import RecipeFilter
+from .permissions import AllowGET, IsAuthenticatedAndActive, IsSuperUser
+from .serializers import (
+    IngredientsSerializer,
+    FavoriteSerializer,
+    RecipesGetSerializer,
+    RecipesSerializer,
+    ShoppingAddSerializer,
+    TagsSerializer
+)
+from recipes.models import Ingredient, Recipe, Tag, Shopping
 from users.models import Follow
 from users.serializers import (
     AvatarSerializer,
@@ -40,14 +50,127 @@ class IngredientsViewSet(vs.ReadOnlyModelViewSet):
         search_fields: Поля для поиска, поддерживает поиск по началу строки.
     """
     queryset = Ingredient.objects.all()
-    serializer_class = IngredientSerializer
+    serializer_class = IngredientsSerializer
     filter_backends = (SearchFilter,)
     search_fields = ('i^name',)
 
 
+class ShoppingPDFView(APIView):
+    permission_classes = (IsAuthenticatedAndActive,)
+
+    def get(self, request):
+        try:
+            shoppings = Shopping.objects.filter(user=request.user)
+            recipes = [s.recipe for s in shoppings]
+
+            response = FileResponse(content_type='application/pdf')
+            pdf = canvas.Canvas(response, pagesize=letter)
+            width, height = letter
+
+            pdf.setFont("Helvetica-Bold", 16)
+            pdf.drawString(100, height - 50, "Список покупок")
+
+            y = height - 100
+            for recipe in recipes:
+                pdf.setFont("Helvetica", 12)
+                pdf.drawString(50, y, f"• {recipe.name}")
+                pdf.drawString(150, y, f"Время: {recipe.cooking_time} мин")
+                y -= 20
+                if y < 50:
+                    pdf.showPage()
+                    y = height - 50
+
+            pdf.save()
+            response[
+                'Content-Disposition'
+            ] = 'attachment; filename="shopping_list.pdf"'
+            return response
+
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
 class RecipesViewSet(vs.ModelViewSet):
-    """
-    """
+
+    queryset = Recipe.objects.all()
+    pagination_class = PageNumberPagination
+    permission_classes = (IsAuthenticatedAndActive),
+    filter_backends = (DjangoFilterBackend, SearchFilter,)
+    filterset_class = RecipeFilter
+    search_fields = ('name',)
+
+    def get_serializer_class(self):
+        if self.action in ('list', 'retrieve'):
+            return RecipesGetSerializer
+        return RecipesSerializer
+
+    @action(
+        detail=True,
+        methods=['POST', 'DELETE'],
+        permission_classes=(IsAuthenticatedAndActive,),
+    )
+    def shopping_cart(self, request, pk):
+        recipe = get_object_or_404(Recipe, id=pk)
+        user = get_object_or_404(User, id=request.user.id)
+        shopping_cart = recipe.recipe_download.filter(user=user)
+        if request.method == 'POST':
+            serializer = ShoppingAddSerializer(
+                data={'user': user.id, 'recipe': recipe.id}
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if shopping_cart.exists():
+            shopping_cart.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    @action(
+        detail=True,
+        methods=['POST', 'DELETE'],
+        permission_classes=(IsAuthenticatedAndActive,),
+    )
+    def favorite(self, request, pk):
+        recipe = get_object_or_404(Recipe, id=pk)
+        user = get_object_or_404(User, id=request.user.id)
+        favorite = recipe.recipe_favorite.filter(user=user)
+        if request.method == 'POST':
+            serializer = FavoriteSerializer(
+                data={'user': user.id, 'recipe': recipe.id}
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if favorite.exists():
+            favorite.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    @action(
+        detail=True,
+        methods=['GET'],
+        url_name='get_link',
+        url_path='get-link'
+    )
+    def get_link(self, request, pk):
+        recipe = self.get_object()  # Используем встроенный метод
+        link = request.build_absolute_uri(recipe.get_absolute_url())
+        return Response({'short-link': link}, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=['GET'],
+        url_name='get_link',
+        url_path='get-link',
+    )
+    def get_link(self, request, pk):
+        """Формирует короткую ссылку на рецепт."""
+
+        get_object_or_404(Recipe, id=pk)
+        link = request.build_absolute_uri(f'/recipes/{pk}/')
+        return Response({'short-link': link}, status=status.HTTP_200_OK)
 
 
 class TagsViewSet(vs.ReadOnlyModelViewSet):
@@ -63,7 +186,7 @@ class TagsViewSet(vs.ReadOnlyModelViewSet):
             JSON формат.
     """
     queryset = Tag.objects.all()
-    serializer_class = TagSerializer
+    serializer_class = TagsSerializer
 
 
 class CustomUsersViewSet(vs.GenericViewSet):
@@ -73,13 +196,13 @@ class CustomUsersViewSet(vs.GenericViewSet):
     permission_classes = (IsAuthenticatedAndActive, IsSuperUser)
     pagination_class = PageNumberPagination
     filter_backends = (SearchFilter,)
-    search_fields = ['username', 'email']
+    search_fields = ('username', 'email')
 
     @action(
         detail=True,
-        methods=['get'],
+        methods=['GET'],
         url_path='me',
-        permission_classes=(IsAuthenticatedAndActive,),
+        permission_classes=(IsAuthenticatedAndActive,)
     )
     def me(self, request):
 
@@ -90,7 +213,7 @@ class CustomUsersViewSet(vs.GenericViewSet):
 
     @action(
         detail=False,
-        methods=['put', 'delete'],
+        methods=['PUT', 'DELETE'],
         url_path='me/avatar',
         serializer_class=AvatarSerializer,
         permission_classes=(IsAuthenticatedAndActive,)
