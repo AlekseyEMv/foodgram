@@ -1,25 +1,27 @@
 from django.contrib.auth import get_user_model
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from rest_framework import status, viewsets as vs
 from rest_framework.decorators import action
-from rest_framework.filters import DjangoFilterBackend, SearchFilter
+from rest_framework.filters import SearchFilter
 from rest_framework.mixins import CreateModelMixin, DestroyModelMixin
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import OR
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .filters import RecipeFilter
-from .permissions import AllowGET, IsAuthenticatedAndActive, IsSuperUser
+from .permissions import IsAuthenticatedAndActive, IsSuperUser
 from .serializers import (
     IngredientsSerializer,
     FavoriteSerializer,
     RecipesGetSerializer,
     RecipesSerializer,
     ShoppingAddSerializer,
+    SubscribeSerializer,
+    SubscriptionsSerializer,
     TagsSerializer
 )
 from recipes.models import Ingredient, Recipe, Tag, Shopping
@@ -27,28 +29,12 @@ from users.models import Follow
 from users.serializers import (
     AvatarSerializer,
     CustomUserSerializer,
-    SubscribeSerializer,
-    SubscriptionsSerializer
 )
 
 User = get_user_model()
 
 
 class IngredientsViewSet(vs.ReadOnlyModelViewSet):
-    """
-    Представление для работы с ингредиентами.
-
-    Предоставляет доступ только для чтения для получения списка всех
-    ингредиентов и для получения конкретного ингридиента по идентификатору.
-    Поддерживает поиск по частичному вхождению в начале названия ингредиента.
-
-    Attributes:
-        queryset: Набор запросов на получения всех ингредиентов из базы данных.
-        serializer_class: Класс сериализатора для преобразования объектов в
-            JSON формат.
-        filter_backends: Кортеж с бэкендами фильтрации.
-        search_fields: Поля для поиска, поддерживает поиск по началу строки.
-    """
     queryset = Ingredient.objects.all()
     serializer_class = IngredientsSerializer
     filter_backends = (SearchFilter,)
@@ -155,36 +141,12 @@ class RecipesViewSet(vs.ModelViewSet):
         url_path='get-link'
     )
     def get_link(self, request, pk):
-        recipe = self.get_object()  # Используем встроенный метод
+        recipe = self.get_object()
         link = request.build_absolute_uri(recipe.get_absolute_url())
-        return Response({'short-link': link}, status=status.HTTP_200_OK)
-
-    @action(
-        detail=True,
-        methods=['GET'],
-        url_name='get_link',
-        url_path='get-link',
-    )
-    def get_link(self, request, pk):
-        """Формирует короткую ссылку на рецепт."""
-
-        get_object_or_404(Recipe, id=pk)
-        link = request.build_absolute_uri(f'/recipes/{pk}/')
         return Response({'short-link': link}, status=status.HTTP_200_OK)
 
 
 class TagsViewSet(vs.ReadOnlyModelViewSet):
-    """
-    Представление для работы с тегами.
-
-    Предоставляет доступ только для чтения для получения списка всех
-    тегов и для получения конкретного тега по идентификатору.
-
-    Attributes:
-        queryset: Набор запросов на получения всех тегов из базы данных.
-        serializer_class: Класс сериализатора для преобразования объектов в
-            JSON формат.
-    """
     queryset = Tag.objects.all()
     serializer_class = TagsSerializer
 

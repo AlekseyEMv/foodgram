@@ -1,13 +1,13 @@
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import IntegrityError
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers as ss
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.validators import(
-    MinValueValidator, UniqueTogetherValidator
-)
+from rest_framework.validators import UniqueTogetherValidator
 
+from .mixins import SubscriptionValidationMixin
 from .validators import NonEmptyCharField
 from foodgram_backend.settings import (
     INGREDIENT_MAX_LENGTH,
@@ -24,6 +24,10 @@ from recipes.models import (
     Tag
 )
 from users.serializers import CustomUserSerializer
+from users.models import Follow
+
+
+User = get_user_model()
 
 
 class IngredientsSerializer(ss.ModelSerializer):
@@ -313,3 +317,82 @@ class FavoriteSerializer(ss.ModelSerializer):
         return BaseRecipeSerializer(
             instance.recipe, context={'request': self.context.get('request')}
         ).data
+
+
+class SubscribeSerializer(SubscriptionValidationMixin, ss.ModelSerializer):
+    user = ss.PrimaryKeyRelatedField(
+        read_only=True,
+        default=ss.CurrentUserDefault(),
+        help_text='Текущий пользователь, создающий подписку.'
+    )
+    author = ss.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        help_text='Пользователь, на которого подписываемся.'
+    )
+
+    class Meta:
+        model = Follow
+        fields = ('user', 'author')
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Follow.objects.all(),
+                fields=('author', 'user'),
+                message='Вы уже подписаны на этого пользователя.'
+            ),
+        ]
+
+    def validate(self, data):
+        self._validate_context()
+        self._validate_user()
+        self._validate_author()
+        data['author'] = self._get_author()
+        return data
+
+    def create(self, validated_data):
+        return super().create(validated_data)
+
+
+class SubscriptionsSerializer(CustomUserSerializer):
+    recipes = ss.SerializerMethodField(
+        method_name='get_recipes',
+        read_only=True
+    )
+    recipes_count = ss.SerializerMethodField(
+        method_name='get_recipes_count',
+        read_only=True
+    )
+
+    class Meta:
+        model = User
+        fields = CustomUserSerializer.Meta.fields + (
+            'recipes',
+            'recipes_count',
+        )
+        read_only_fields = (
+            'email',
+            'username',
+            'first_name',
+            'last_name',
+            'avatar',
+        )
+
+    def get_recipes_count(self, user):
+        return user.recipes.count()
+
+    def get_recipes(self, user):
+        request = self.context.get('request')
+        recipes_limit = request.GET.get('recipes_limit')
+
+        recipes = user.recipes.all()
+
+        if recipes_limit:
+            try:
+                recipes_limit = int(recipes_limit)
+                if recipes_limit < 0:
+                    raise ValueError
+                recipes = recipes[:recipes_limit]
+            except (ValueError, TypeError):
+                raise ValidationError({'recipes_limit': 'Неверное значение'})
+
+        serializer = BaseRecipeSerializer(recipes, many=True)
+        return serializer.data
