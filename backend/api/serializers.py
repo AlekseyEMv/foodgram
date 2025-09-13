@@ -7,25 +7,16 @@ from rest_framework import serializers as ss
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.validators import UniqueTogetherValidator
 
+from foodgram_backend.settings import (INGREDIENT_MAX_LENGTH,
+                                       INGRIGIENTS_MIN_VALUE, MIN_COOKING_TIME,
+                                       UNIT_MAX_LENGTH)
+from recipes.models import (Favorite, Ingredient, IngredientRecipe, Recipe,
+                            Shopping, Tag)
+from users.models import Follow
+from users.serializers import CustomUserSerializer
+
 from .mixins import SubscriptionValidationMixin
 from .validators import NonEmptyCharField
-from foodgram_backend.settings import (
-    INGREDIENT_MAX_LENGTH,
-    INGRIGIENTS_MIN_VALUE,
-    MIN_COOKING_TIME,
-    UNIT_MAX_LENGTH
-)
-from recipes.models import (
-    Ingredient,
-    IngredientRecipe,
-    Favorite,
-    Recipe,
-    Shopping,
-    Tag
-)
-from users.serializers import CustomUserSerializer
-from users.models import Follow
-
 
 User = get_user_model()
 
@@ -252,7 +243,7 @@ class RecipesSerializer(BaseRecipeSerializer):
             ]
             IngredientRecipe.objects.bulk_create(
                 [
-                    obj for obj in bulk_update_data 
+                    obj for obj in bulk_update_data
                     if not IngredientRecipe.objects.filter(
                         recipe=recipe,
                         ingredient_id=obj.ingredient_id
@@ -281,12 +272,12 @@ class ShoppingAddSerializer(ss.ModelSerializer):
     class Meta:
         model = Shopping
         fields = ('user', 'recipe')
-        validators = (
+        validators = [
             UniqueTogetherValidator(
                 queryset=Shopping.objects.all(),
                 fields=('user', 'recipe'),
             ),
-        )
+        ]
 
     def to_representation(self, instance):
         return BaseRecipeSerializer(
@@ -306,12 +297,12 @@ class FavoriteSerializer(ss.ModelSerializer):
     class Meta:
         model = Favorite
         fields = ('user', 'recipe')
-        validators = (
+        validators = [
             UniqueTogetherValidator(
                 queryset=Favorite.objects.select_related('recipe'),
                 fields=('user', 'recipe')
             ),
-        )
+        ]
 
     def to_representation(self, instance):
         return BaseRecipeSerializer(

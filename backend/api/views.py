@@ -4,7 +4,8 @@ from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from rest_framework import status, viewsets as vs
+from rest_framework import status
+from rest_framework import viewsets as vs
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.mixins import CreateModelMixin, DestroyModelMixin
@@ -12,24 +13,16 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from recipes.models import Ingredient, Recipe, Shopping, Tag
+from users.models import Follow
+from users.serializers import AvatarSerializer, CustomUserSerializer
+
 from .filters import RecipeFilter
 from .permissions import IsAuthenticatedAndActive, IsSuperUser
-from .serializers import (
-    IngredientsSerializer,
-    FavoriteSerializer,
-    RecipesGetSerializer,
-    RecipesSerializer,
-    ShoppingAddSerializer,
-    SubscribeSerializer,
-    SubscriptionsSerializer,
-    TagsSerializer
-)
-from recipes.models import Ingredient, Recipe, Tag, Shopping
-from users.models import Follow
-from users.serializers import (
-    AvatarSerializer,
-    CustomUserSerializer,
-)
+from .serializers import (FavoriteSerializer, IngredientsSerializer,
+                          RecipesGetSerializer, RecipesSerializer,
+                          ShoppingAddSerializer, SubscribeSerializer,
+                          SubscriptionsSerializer, TagsSerializer)
 
 User = get_user_model()
 

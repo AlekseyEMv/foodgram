@@ -6,6 +6,6 @@ class NonEmptyCharField(ss.CharField):
     default_validators = [
         RegexValidator(
             regex=r'^\S+$',
-            message='Поле не может быть пустым или содержать только пробелы'
+            message='Поле не может быть пустым или содержать только пробелы.'
         )
     ]

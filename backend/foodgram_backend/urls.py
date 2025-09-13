@@ -4,7 +4,6 @@ from django.urls import include, path
 
 from foodgram_backend.settings import DEBUG, MEDIA_ROOT, MEDIA_URL
 
-
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls', namespace='api')),

@@ -2,10 +2,6 @@ import os
 from pathlib import Path
 
 from django.core.management.utils import get_random_secret_key
-from dotenv import load_dotenv
-
-
-load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -111,7 +107,7 @@ USE_L10N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'collected_static')
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -195,8 +191,11 @@ USERNAME_REGEX = r'^[\w.@+-]+$'
 # Список запрещенных ников пользователей.
 FORBIDDEN_USERNAMES = ['me',]
 
-# Минимальная длина пароля
+# Минимальная длина пароля.
 MIN_PASSWORD_LEN = 8
 
-# Максимальная размер аватара
+# Максимальная размер аватара.
 AVATAR_MAX_LENGTH = 1024 ** 2
+
+# Дефолтное значение для полей моделей.
+DEFAULT_VALUE = 'Не указано'

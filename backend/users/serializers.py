@@ -8,6 +8,7 @@ from rest_framework.validators import UniqueValidator
 
 from foodgram_backend.settings import AVATAR_MAX_LENGTH, MIN_PASSWORD_LEN
 
+from .validators import validate_image_format
 
 User = get_user_model()
 
@@ -70,6 +71,7 @@ class AvatarSerializer(ss.ModelSerializer):
         required=False,
         allow_null=True,
         max_length=AVATAR_MAX_LENGTH,
+        validators=[validate_image_format],
         help_text="Аватар пользователя в формате base64"
     )
 

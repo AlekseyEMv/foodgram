@@ -1,19 +1,13 @@
+from io import BytesIO
 from re import fullmatch
+
 from django.core.exceptions import ValidationError
+from PIL import Image
 
 from foodgram_backend.settings import FORBIDDEN_USERNAMES, USERNAME_REGEX
 
 
 def validate_username_not_me(value):
-    """
-    Проверяет, что указанное имя пользователя не входит в список запрещенных.
-
-    Параметры:
-    value: Имя пользователя для проверки
-
-    Исключения:
-    ValidationError: Если имя пользователя содержится в списке запрещенных.
-    """
     if value in FORBIDDEN_USERNAMES:
         raise ValidationError(
             (f'Cлово {value} нельзя использовать'
@@ -22,33 +16,19 @@ def validate_username_not_me(value):
 
 
 def validate_username_characters(value):
-    """Проверяет, соответствует ли ник допустимому формату символов.
-
-    Args:
-        value: Строка с ником пользователя для валидации.
-
-    Raises:
-        ValidationError: Если имя пользователя содержит недопустимые символы.
-
-    Notes:
-        Разрешенные символы:
-        - Буквы (A-Z, a-z)
-        - Цифры (0-9)
-        - Специальные символы: @ . + - _
-
-    Example:
-        >>> validate_username_characters("user_123")
-        None  # Валидация пройдена
-
-        >>> validate_username_char_exists("user@name")
-        None  # Валидация пройдена
-
-        >>> validate_username_characters("user name")
-        ValidationError: Ник пользователя может состоять из букв, цифр,
-        а также символов @.+-_
-    """
     if fullmatch(USERNAME_REGEX, value) is None:
         raise ValidationError(
             ('Ник пользователя может состоять из букв, цифр, '
              'а также символов @.+-_')
         )
+
+
+def validate_image_format(value):
+    try:
+        if value:
+            image = Image.open(BytesIO(value.read()))
+            if image.format not in ['JPEG', 'PNG', 'GIF']:
+                raise ValidationError('Допустимые форматы: JPEG, PNG, GIF')
+            return value
+    except Exception as e:
+        raise ValidationError(f'Ошибка при проверке изображения: {str(e)}')

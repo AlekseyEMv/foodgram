@@ -1,20 +1,13 @@
-from django.db import models as ms
 from django.contrib.auth import get_user_model
-from django.core.validators import (
-    FileExtensionValidator, MinLengthValidator, MinValueValidator
-)
+from django.core.validators import (FileExtensionValidator, MinLengthValidator,
+                                    MinValueValidator)
+from django.db import models as ms
 from django.urls import reverse
 
-from foodgram_backend.settings import (
-    ADMIN_MAX_LENGTH,
-    INGREDIENT_MAX_LENGTH,
-    INGRIGIENTS_MIN_VALUE,
-    MIN_COOKING_TIME,
-    RECIPE_MAX_LENGTH,
-    RECIPE_MIN_LENGTH,
-    TAG_MAX_LENGTH,
-    UNIT_MAX_LENGTH
-)
+from foodgram_backend.settings import (ADMIN_MAX_LENGTH, INGREDIENT_MAX_LENGTH,
+                                       INGRIGIENTS_MIN_VALUE, MIN_COOKING_TIME,
+                                       RECIPE_MAX_LENGTH, RECIPE_MIN_LENGTH,
+                                       TAG_MAX_LENGTH, UNIT_MAX_LENGTH)
 
 User = get_user_model()
 
@@ -222,7 +215,7 @@ class IngredientRecipe(ms.Model):
     )
     amount = ms.PositiveSmallIntegerField(
         default=INGRIGIENTS_MIN_VALUE,
-        validators=(
+        validators=[
             MinValueValidator(
                 limit_value=INGRIGIENTS_MIN_VALUE,
                 message=(
@@ -230,7 +223,7 @@ class IngredientRecipe(ms.Model):
                     f'меньше {INGRIGIENTS_MIN_VALUE}'
                 )
             ),
-        ),
+        ],
         verbose_name='Количество'
     )
 
