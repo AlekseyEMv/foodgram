@@ -22,13 +22,6 @@ subscribe_router.register(
 )
 
 urlpatterns = [
-    # Скачивание списка покупок
-    path(
-        'recipes/download_shopping_cart/',
-        ShoppingPDFView.as_view(),
-        name='shopping-pdf'
-    ),
-
     # Аутентификация
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.authtoken')),
@@ -36,4 +29,11 @@ urlpatterns = [
     # Основные маршруты
     path('', include(router.urls)),
     path('', include(subscribe_router.urls)),
+
+    # Другие маршруты
+    path(
+        'recipes/download_shopping_cart/',
+        ShoppingPDFView.as_view(),
+        name='shopping-pdf'
+    ),
 ]
