@@ -1,8 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from api.views import (CustomUsersViewSet, IngredientsViewSet, RecipesViewSet,
-                       ShoppingPDFView, SubscribeViewSet, TagsViewSet)
+from api.views import (IngredientsViewSet, RecipesViewSet, ShoppingPDFView,
+                       SubscribeViewSet, TagsViewSet, UserProfileViewSet)
 
 app_name = 'api'
 
@@ -11,7 +11,6 @@ router = DefaultRouter()
 router.register('ingredients', IngredientsViewSet, basename='ingredients')
 router.register('recipes', RecipesViewSet, basename='recipes')
 router.register('tags', TagsViewSet, basename='tags')
-router.register('users', CustomUsersViewSet, basename='users')
 
 # Роутер для подписки
 subscribe_router = DefaultRouter()
@@ -22,9 +21,23 @@ subscribe_router.register(
 )
 
 urlpatterns = [
-    # Аутентификация
+    # Аутентификация через Djoser
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.authtoken')),
+
+    # Пользовательские эндпоинты
+    path(
+        'users/me/', UserProfileViewSet.as_view({'get': 'me'}), name='user-me'
+    ),
+    path(
+        'users/me/avatar/',
+        UserProfileViewSet.as_view({'put': 'avatar', 'delete': 'avatar'}),
+        name='user-avatar'
+    ),
+    path(
+        'users/subscriptions/',
+        UserProfileViewSet.as_view({'get': 'subscriptions'}),
+        name='user-subscriptions'),
 
     # Основные маршруты
     path('', include(router.urls)),

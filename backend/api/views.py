@@ -145,7 +145,7 @@ class TagsViewSet(vs.ReadOnlyModelViewSet):
     serializer_class = TagsSerializer
 
 
-class CustomUsersViewSet(vs.GenericViewSet):
+class UserProfileViewSet(vs.GenericViewSet):
     queryset = User.objects.all()
     serializer_class = CustomUserSerializer
     permission_classes = (IsAuthenticatedAndActive,)
@@ -160,29 +160,16 @@ class CustomUsersViewSet(vs.GenericViewSet):
             return [IsAuthenticatedAndActive() | IsSuperUser()]
         return super().get_permissions()
 
-    @action(
-        detail=True,
-        methods=['GET'],
-        url_path='me',
-        permission_classes=[IsAuthenticatedAndActive]
-    )
     def me(self, request):
         serializer = CustomUserSerializer(
             request.user, context={'request': request}
         )
         return Response(data=serializer.data, status=status.HTTP_200_OK)
 
-    @action(
-        detail=False,
-        methods=['PUT', 'DELETE'],
-        url_path='me/avatar',
-        serializer_class=AvatarSerializer,
-        permission_classes=[IsAuthenticatedAndActive]
-    )
     def avatar(self, request):
         if request.method == 'PUT':
             if request.data:
-                serializer = self.get_serializer(
+                serializer = AvatarSerializer(
                     request.user,
                     data=request.data,
                     partial=True,
@@ -195,11 +182,6 @@ class CustomUsersViewSet(vs.GenericViewSet):
             self.request.user.avatar.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(
-        detail=False,
-        methods=['GET'],
-        pagination_class=PageNumberPagination
-    )
     def subscriptions(self, request):
         queryset = User.objects.filter(following__user=self.request.user)
         pages = self.paginate_queryset(queryset)
