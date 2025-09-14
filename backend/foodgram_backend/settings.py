@@ -150,6 +150,7 @@ DJOSER = {
         'set_password': ['djoser.permissions.CurrentUserOrAdmin'],
     },
     'SERIALIZERS': {
+        'user_create': 'users.serializers.CustomUserCreateSerializer',
         'user': 'users.serializers.CustomUserSerializer',
     },
 }

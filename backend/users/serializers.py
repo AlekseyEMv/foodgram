@@ -13,6 +13,16 @@ from .validators import validate_image_format
 User = get_user_model()
 
 
+class BaseUserSerializer(ss.ModelSerializer):
+    def create_user(self, validated_data):
+        try:
+            return User.objects.create_user(**validated_data)
+        except IntegrityError:
+            raise ValidationError({'detail': 'Ошибка создания пользователя.'})
+        except Exception as e:
+            raise ValidationError({'detail': str(e)})
+
+
 class CustomUserSerializer(UserSerializer):
     is_subscribed = ss.SerializerMethodField(
         help_text='Флаг подписки текущего пользователя на данного пользователя'
@@ -57,14 +67,6 @@ class CustomUserSerializer(UserSerializer):
             else False
         )
 
-    def create(self, validated_data):
-        try:
-            return User.objects.create_user(**validated_data)
-        except IntegrityError:
-            raise ValidationError({'detail': 'Ошибка создания пользователя.'})
-        except Exception as e:
-            raise ValidationError({'detail': str(e)})
-
 
 class AvatarSerializer(ss.ModelSerializer):
     avatar = Base64ImageField(
@@ -76,11 +78,6 @@ class AvatarSerializer(ss.ModelSerializer):
     )
 
     class Meta:
-        """
-        Настройки сериализатора.
-
-        Определяет модель и поля для сериализации.
-        """
         model = User
         fields = ('avatar',)
         extra_kwargs = {
@@ -89,3 +86,34 @@ class AvatarSerializer(ss.ModelSerializer):
                 'allow_null': True
             }
         }
+
+
+class CustomUserCreateSerializer(BaseUserSerializer):
+    password = ss.CharField(
+        write_only=True,
+        min_length=MIN_PASSWORD_LEN,
+        style={'input_type': 'password'}
+    )
+
+    class Meta:
+        model = User
+        fields = (
+            'email',
+            'username',
+            'first_name',
+            'last_name',
+            'password',
+        )
+        extra_kwargs = {
+            'email': {
+                'required': True,
+                'validators': [UniqueValidator(queryset=User.objects.all())]
+            },
+            'username': {
+                'required': True,
+                'validators': [UniqueValidator(queryset=User.objects.all())]
+            },
+        }
+
+    def create(self, validated_data):
+        return self.create_user(validated_data)
