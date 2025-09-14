@@ -1,8 +1,14 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from api.views import (IngredientsViewSet, RecipesViewSet, ShoppingPDFView,
-                       SubscribeViewSet, TagsViewSet, UserProfileViewSet)
+from api.views import (
+    IngredientsViewSet,
+    RecipesViewSet,
+    ShoppingPDFView,
+    SubscribeViewSet,
+    TagsViewSet,
+    UserProfileViewSet
+)
 
 app_name = 'api'
 
@@ -37,7 +43,8 @@ urlpatterns = [
     path(
         'users/subscriptions/',
         UserProfileViewSet.as_view({'get': 'subscriptions'}),
-        name='user-subscriptions'),
+        name='user-subscriptions'
+    ),
 
     # Основные маршруты
     path('', include(router.urls)),
