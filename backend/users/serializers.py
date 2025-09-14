@@ -14,6 +14,7 @@ User = get_user_model()
 
 
 class BaseUserSerializer(ss.ModelSerializer):
+    """Базовый серилизатор."""
     def create_user(self, validated_data):
         try:
             return User.objects.create_user(**validated_data)
