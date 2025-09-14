@@ -8,6 +8,7 @@ app_name = 'api'
 
 # Основной роутер
 router = DefaultRouter()
+router.register('users', UserProfileViewSet, basename='users')
 router.register('ingredients', IngredientsViewSet, basename='ingredients')
 router.register('recipes', RecipesViewSet, basename='recipes')
 router.register('tags', TagsViewSet, basename='tags')
@@ -22,23 +23,7 @@ subscribe_router.register(
 
 urlpatterns = [
     # Аутентификация через Djoser
-    path('auth/', include('djoser.urls')),
-    path('auth/', include('djoser.urls.authtoken')),
-
-    # Пользовательские эндпоинты
-    path(
-        'users/me/', UserProfileViewSet.as_view({'get': 'me'}), name='user-me'
-    ),
-    path(
-        'users/me/avatar/',
-        UserProfileViewSet.as_view({'put': 'avatar', 'delete': 'avatar'}),
-        name='user-avatar'
-    ),
-    path(
-        'users/subscriptions/',
-        UserProfileViewSet.as_view({'get': 'subscriptions'}),
-        name='user-subscriptions'
-    ),
+    path('auth/', include('djoser.urls.authtoken')),  # Оставляем токены
 
     # Основные маршруты
     path('', include(router.urls)),

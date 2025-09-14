@@ -10,12 +10,14 @@ from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.mixins import CreateModelMixin, DestroyModelMixin
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permisions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from recipes.models import Ingredient, Recipe, Shopping, Tag
 from users.models import Follow
-from users.serializers import AvatarSerializer, CustomUserSerializer
+from users.serializers import (AvatarSerializer, CustomUserCreateSerializer,
+                               CustomUserSerializer)
 
 from .filters import RecipeFilter
 from .permissions import IsAuthenticatedAndActive, IsSuperUser
@@ -145,7 +147,7 @@ class TagsViewSet(vs.ReadOnlyModelViewSet):
     serializer_class = TagsSerializer
 
 
-class UserProfileViewSet(vs.GenericViewSet):
+class UserProfileViewSet(vs.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = CustomUserSerializer
     permission_classes = (IsAuthenticatedAndActive,)
@@ -153,19 +155,28 @@ class UserProfileViewSet(vs.GenericViewSet):
     filter_backends = (SearchFilter,)
     search_fields = ('username', 'email')
 
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return CustomUserCreateSerializer
+        return CustomUserSerializer
+
     def get_permissions(self):
         if self.action in ('subscriptions', 'me', 'avatar'):
             return [IsAuthenticatedAndActive()]
         elif self.action == 'list':
             return [IsAuthenticatedAndActive() | IsSuperUser()]
+        elif self.action == 'create':
+            return [AllowAny()]
         return super().get_permissions()
 
+    @action(detail=False, methods=['get'])
     def me(self, request):
         serializer = CustomUserSerializer(
             request.user, context={'request': request}
         )
         return Response(data=serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['put', 'delete'])
     def avatar(self, request):
         if request.method == 'PUT':
             if request.data:
@@ -182,6 +193,7 @@ class UserProfileViewSet(vs.GenericViewSet):
             self.request.user.avatar.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=False, methods=['get'])
     def subscriptions(self, request):
         queryset = User.objects.filter(following__user=self.request.user)
         pages = self.paginate_queryset(queryset)
