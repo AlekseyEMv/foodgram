@@ -28,6 +28,7 @@ User = get_user_model()
 
 
 class IngredientsViewSet(vs.ReadOnlyModelViewSet):
+    """Представление модели ингридиентов."""
     queryset = Ingredient.objects.all()
     serializer_class = IngredientsSerializer
     filter_backends = (SearchFilter,)
