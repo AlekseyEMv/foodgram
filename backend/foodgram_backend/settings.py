@@ -60,9 +60,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'foodgram_backend.wsgi.application'
 
+# IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'False').lower() == 'false'
 IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'True').lower() == 'true'
 
-if IS_POSTGRESQL_ENGINE:
+if not IS_POSTGRESQL_ENGINE:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -116,8 +117,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'users.User'
 
-# Константа, определяет количество отображаемых рецептов на странице.
+# Константы, определяют количество отображаемых рецептов на странице.
 PAGINATION_SIZE = 6
+MAX_PAGINATION_SIZE = 100
+
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
@@ -128,7 +131,8 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': PAGINATION_SIZE,
-    'MAX_PAGE_SIZE': 1000,
+    'PAGINATE_BY_PARAM': 'limit',
+    'MAX_PAGE_SIZE': MAX_PAGINATION_SIZE,
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.UserRateThrottle',
         'rest_framework.throttling.AnonRateThrottle',

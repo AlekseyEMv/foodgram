@@ -9,7 +9,6 @@ from rest_framework import viewsets as vs
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.mixins import CreateModelMixin, DestroyModelMixin
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -20,7 +19,8 @@ from users.serializers import (AvatarSerializer, CustomUserCreateSerializer,
                                CustomUserSerializer)
 
 from .filters import RecipeFilter
-from .permissions import IsAuthenticatedAndActive, IsSuperUser
+from .pagination import CustomPagination
+from .permissions import IsAuthenticatedAndActive
 from .serializers import (FavoriteSerializer, IngredientsSerializer,
                           RecipesGetSerializer, RecipesSerializer,
                           ShoppingAddSerializer, SubscribeSerializer,
@@ -77,7 +77,7 @@ class ShoppingPDFView(APIView):
 class RecipesViewSet(vs.ModelViewSet):
 
     queryset = Recipe.objects.all()
-    pagination_class = PageNumberPagination
+    pagination_class = CustomPagination
     permission_classes = (IsAuthenticatedAndActive),
     filter_backends = (DjangoFilterBackend, SearchFilter,)
     filterset_class = RecipeFilter
@@ -151,7 +151,7 @@ class UserProfileViewSet(vs.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = CustomUserSerializer
     permission_classes = (IsAuthenticatedAndActive,)
-    pagination_class = PageNumberPagination
+    pagination_class = CustomPagination
     filter_backends = (SearchFilter,)
     search_fields = ('username', 'email')
 
@@ -163,9 +163,7 @@ class UserProfileViewSet(vs.ModelViewSet):
     def get_permissions(self):
         if self.action in ('subscriptions', 'me', 'avatar'):
             return [IsAuthenticatedAndActive()]
-        elif self.action == 'list':
-            return [IsAuthenticatedAndActive() | IsSuperUser()]
-        elif self.action == 'create':
+        elif self.action in ('list', 'create'):
             return [AllowAny()]
         return super().get_permissions()
 

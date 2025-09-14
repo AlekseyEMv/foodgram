@@ -1,6 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
-from django.db import IntegrityError
 from djoser.serializers import UserSerializer
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers as ss
@@ -8,20 +6,9 @@ from rest_framework.validators import UniqueValidator
 
 from foodgram_backend.settings import AVATAR_MAX_LENGTH, MIN_PASSWORD_LEN
 
-from .validators import validate_image_format
+from .validators import validate_image_format, validate_username_characters
 
 User = get_user_model()
-
-
-class BaseUserSerializer(ss.ModelSerializer):
-    """Базовый серилизатор."""
-    def create_user(self, validated_data):
-        try:
-            return User.objects.create_user(**validated_data)
-        except IntegrityError:
-            raise ValidationError({'detail': 'Ошибка создания пользователя.'})
-        except Exception as e:
-            raise ValidationError({'detail': str(e)})
 
 
 class CustomUserSerializer(UserSerializer):
@@ -38,7 +25,6 @@ class CustomUserSerializer(UserSerializer):
             'first_name',
             'last_name',
             'avatar',
-            'password',
             'is_subscribed',
         )
         extra_kwargs = {
@@ -48,25 +34,18 @@ class CustomUserSerializer(UserSerializer):
             },
             'username': {
                 'required': True,
-                'validators': [UniqueValidator(queryset=User.objects.all())]
-            },
-            'password': {
-                'write_only': True,
-                'min_length': MIN_PASSWORD_LEN,
-                'style': {'input_type': 'password'}
+                'validators': [
+                    UniqueValidator(queryset=User.objects.all()),
+                    validate_username_characters
+                ]
             },
         }
 
     def get_is_subscribed(self, obj):
         request = self.context.get('request')
-        if not request:
+        if not request or not request.user.is_authenticated:
             return False
-        current_user = request.user
-        return (
-            current_user.follower.filter(author=obj).exists()
-            if current_user.is_authenticated
-            else False
-        )
+        return obj.following.filter(user=request.user).exists()
 
 
 class AvatarSerializer(ss.ModelSerializer):
@@ -89,9 +68,10 @@ class AvatarSerializer(ss.ModelSerializer):
         }
 
 
-class CustomUserCreateSerializer(BaseUserSerializer):
+class CustomUserCreateSerializer(UserSerializer):
     password = ss.CharField(
         write_only=True,
+        required=True,
         min_length=MIN_PASSWORD_LEN,
         style={'input_type': 'password'}
     )
@@ -99,11 +79,12 @@ class CustomUserCreateSerializer(BaseUserSerializer):
     class Meta:
         model = User
         fields = (
+            'id',
             'email',
             'username',
             'first_name',
             'last_name',
-            'password',
+            'password'
         )
         extra_kwargs = {
             'email': {
@@ -112,9 +93,28 @@ class CustomUserCreateSerializer(BaseUserSerializer):
             },
             'username': {
                 'required': True,
-                'validators': [UniqueValidator(queryset=User.objects.all())]
+                'validators': [
+                    UniqueValidator(queryset=User.objects.all()),
+                    validate_username_characters
+                ]
             },
+            'first_name': {'required': True},
+            'last_name': {'required': True},
+            'password': {'write_only': True}
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['password'].required = True
+        for field in ['email', 'username', 'first_name', 'last_name']:
+            self.fields[field].required = True
 
     def create(self, validated_data):
         return self.create_user(validated_data)
+
+    def create_user(self, validated_data):
+        password = validated_data.pop('password')
+        user = User.objects.create(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
