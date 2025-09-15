@@ -16,7 +16,7 @@ from rest_framework.views import APIView
 from recipes.models import Ingredient, Recipe, Shopping, Tag
 from users.models import Follow
 from users.serializers import (AvatarSerializer, CustomUserCreateSerializer,
-                               CustomUserSerializer)
+                               CustomUserSerializer, SetPasswordSerializer)
 
 from .filters import RecipeFilter
 from .pagination import CustomPagination
@@ -145,12 +145,12 @@ class RecipesViewSet(vs.ModelViewSet):
 class TagsViewSet(vs.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagsSerializer
+    pagination_class = None
 
 
 class UserProfileViewSet(vs.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = CustomUserSerializer
-    permission_classes = (IsAuthenticatedAndActive,)
     pagination_class = CustomPagination
     filter_backends = (SearchFilter,)
     search_fields = ('username', 'email')
@@ -163,7 +163,7 @@ class UserProfileViewSet(vs.ModelViewSet):
     def get_permissions(self):
         if self.action in ('subscriptions', 'me', 'avatar'):
             return [IsAuthenticatedAndActive()]
-        elif self.action in ('list', 'create'):
+        elif self.action in ('list', 'create', 'retrieve'):
             return [AllowAny()]
         return super().get_permissions()
 
@@ -172,9 +172,12 @@ class UserProfileViewSet(vs.ModelViewSet):
         serializer = CustomUserSerializer(
             request.user, context={'request': request}
         )
-        return Response(data=serializer.data, status=status.HTTP_200_OK)
+        response_data = serializer.data
+        if not response_data.get('avatar'):
+            response_data['avatar'] = ''
+        return Response(data=response_data, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=['put', 'delete'])
+    @action(detail=False, methods=['put', 'delete'], url_path='me/avatar')
     def avatar(self, request):
         if request.method == 'PUT':
             if request.data:
@@ -185,10 +188,17 @@ class UserProfileViewSet(vs.ModelViewSet):
                 )
                 serializer.is_valid(raise_exception=True)
                 serializer.save()
-                return Response(serializer.data)
+                response_data = {
+                    'avatar': (
+                        request.user.avatar.url
+                        if request.user.avatar else None
+                    )
+                }
+                return Response(response_data)
             return Response(status=status.HTTP_400_BAD_REQUEST)
         elif request.method == 'DELETE':
-            self.request.user.avatar.delete()
+            if request.user.avatar:
+                request.user.avatar.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['get'])
@@ -199,6 +209,21 @@ class UserProfileViewSet(vs.ModelViewSet):
             pages, many=True, context={'request': request}
         )
         return self.get_paginated_response(serializer.data)
+
+
+class SetPasswordView(APIView):
+    permission_classes = [IsAuthenticatedAndActive]
+
+    def post(self, request):
+        user = request.user
+        serializer = SetPasswordSerializer(user, data=request.data)
+
+        if serializer.is_valid():
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class SubscribeViewSet(CreateModelMixin, DestroyModelMixin, vs.GenericViewSet):

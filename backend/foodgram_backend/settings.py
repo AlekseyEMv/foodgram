@@ -60,8 +60,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'foodgram_backend.wsgi.application'
 
-# IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'False').lower() == 'false'
-IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'True').lower() == 'true'
+IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'False').lower() == 'false'
+# IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'True').lower() == 'true'
 
 if not IS_POSTGRESQL_ENGINE:
     DATABASES = {
@@ -157,6 +157,9 @@ DJOSER = {
         'user_create': 'users.serializers.CustomUserCreateSerializer',
         'user': 'users.serializers.CustomUserSerializer',
     },
+    'PASSWORD_RESET_CONFIRM_URL': '#/password/reset/confirm/{uid}/{token}',
+    'ACTIVATION_URL': '#/activate/{uid}/{token}',
+    'SEND_ACTIVATION_EMAIL': False,
 }
 
 # Строка для пустых ячеек админ-панели

@@ -15,6 +15,9 @@ class CustomUserSerializer(UserSerializer):
     is_subscribed = ss.SerializerMethodField(
         help_text='Флаг подписки текущего пользователя на данного пользователя'
     )
+    avatar = ss.SerializerMethodField(
+        help_text='Аватар текущего пользователя.'
+    )
 
     class Meta:
         model = User
@@ -46,6 +49,9 @@ class CustomUserSerializer(UserSerializer):
         if not request or not request.user.is_authenticated:
             return False
         return obj.following.filter(user=request.user).exists()
+
+    def get_avatar(self, obj):
+        return obj.avatar.url if obj.avatar else ''
 
 
 class AvatarSerializer(ss.ModelSerializer):
@@ -118,3 +124,14 @@ class CustomUserCreateSerializer(UserSerializer):
         user.set_password(password)
         user.save()
         return user
+
+
+class SetPasswordSerializer(ss.Serializer):
+    old_password = ss.CharField(required=True)
+    new_password = ss.CharField(required=True, min_length=8)
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise ss.ValidationError("Неверный старый пароль")
+        return value

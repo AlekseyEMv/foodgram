@@ -1,8 +1,9 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from api.views import (IngredientsViewSet, RecipesViewSet, ShoppingPDFView,
-                       SubscribeViewSet, TagsViewSet, UserProfileViewSet)
+from api.views import (IngredientsViewSet, RecipesViewSet, SetPasswordView,
+                       ShoppingPDFView, SubscribeViewSet, TagsViewSet,
+                       UserProfileViewSet)
 
 app_name = 'api'
 
@@ -22,14 +23,12 @@ subscribe_router.register(
 )
 
 urlpatterns = [
-    # Аутентификация через Djoser
-    path('auth/', include('djoser.urls.authtoken')),  # Оставляем токены
-
-    # Основные маршруты
+    path('auth/', include('djoser.urls.authtoken')),
+    path(
+        'users/set_password/', SetPasswordView.as_view(), name='set_password'
+    ),
     path('', include(router.urls)),
     path('', include(subscribe_router.urls)),
-
-    # Другие маршруты
     path(
         'recipes/download_shopping_cart/',
         ShoppingPDFView.as_view(),
