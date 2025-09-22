@@ -1,9 +1,22 @@
 from django.contrib.auth.models import BaseUserManager
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 
-from foodgram.messages import Warnings
+from api.validators import (
+    validate_all_required_fields,
+    validate_unique_email,
+    validate_unique_username,
+    validate_superuser_flag
+)
 
 
 class CreateUserManager(BaseUserManager):
+    """
+    Менеджер для создания и управления пользователями.
+
+    Предоставляет методы для создания обычных пользователей и
+    суперпользователей, выполняет валидацию данных и обработку ошибок.
+    """
     use_in_migrations = True
 
     def _create_user(
@@ -15,28 +28,60 @@ class CreateUserManager(BaseUserManager):
         password,
         **extra_fields
     ):
-        if not email:
-            raise ValueError(Warnings.EMAIL_REQUIRED)
-        if not username:
-            raise ValueError(Warnings.USERNAME_REQUIRED)
-        if not first_name:
-            raise ValueError('Укажите своё имя.')
-        if not last_name:
-            raise ValueError('Укажите свою фамилию.')
-        if self.model.objects.filter(email=email).exists():
-            raise ValueError('Email уже используется.')
-        if self.model.objects.filter(username=username).exists():
-            raise ValueError('Имя пользователя уже занято.')
+        """
+        Создает пользователя с указанными параметрами.
 
-        email = self.normalize_email(email)
-        username = self.model.normalize_username(username)
-        user = self.model(
-            email=email, username=username, first_name=first_name,
-            last_name=last_name, **extra_fields
-        )
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
+        Параметры:
+        - email: адрес электронной почты пользователя
+        - username: уникальное имя пользователя в системе
+        - first_name: имя пользователя
+        - last_name: фамилия пользователя
+        - password: пароль пользователя
+        - extra_fields: дополнительные поля для настройки пользователя
+
+        Возвращает:
+        - AbstractUser: созданный объект пользователя
+
+        Вызывает:
+        - IntegrityError: при нарушении целостности данных
+        - ValidationError: при нарушении правил валидации
+        """
+        try:
+            # Валидация обязательных полей
+            validate_all_required_fields(
+                email, username, first_name, last_name
+            )
+
+            # Валидация уникальности
+            validate_unique_email(email, self.model)
+            validate_unique_username(username, self.model)
+            email = self.normalize_email(email)
+            username = self.model.normalize_username(username)
+
+            with transaction.atomic():
+                user = self.model(
+                    email=email,
+                    username=username,
+                    first_name=first_name,
+                    last_name=last_name,
+                    **extra_fields
+                )
+                user.set_password(password)
+                user.save(using=self._db)
+                return user
+
+        except IntegrityError as e:
+            raise ValidationError(
+                f'Ошибка целостности при создании пользователя: {e}'
+            )
+        except ValidationError as e:
+            raise ValidationError(
+                f'Ошибка валидации при создании пользователя: {e}'
+            )
+        except Exception as e:
+            raise ValidationError(
+                f'Непредвиденная ошибка при создании пользователя: {e}'
+            )
 
     def create_user(
         self,
@@ -95,8 +140,10 @@ class CreateUserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
-        if not extra_fields.get('is_superuser'):
-            raise ValueError('Установите флаг "is_superuser=True".')
+
+        # Валидация флага суперпользователя
+        validate_superuser_flag(extra_fields)
+
         return self._create_user(
             email, username, first_name, last_name, password, **extra_fields
         )

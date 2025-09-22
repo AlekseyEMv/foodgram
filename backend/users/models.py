@@ -137,16 +137,13 @@ class Follow(ms.Model):
         constraints = [
             ms.UniqueConstraint(
                 fields=['user', 'author'],
-                name='unique_followings',
-                help_text='Гарантирует уникальность комбинации подписчик-автор'
+                name='unique_followings'
             ),
         ]
         ordering = ['-sub_date']
         indexes = [
-            ms.Index(
-                fields=['user', 'author'],
-                help_text='Индекс для быстрого поиска подписок'
-            ),
+            # 'Индекс для быстрого поиска подписок'
+            ms.Index(fields=['user', 'author']),
         ]
 
     def clean(self):
@@ -168,7 +165,6 @@ class Follow(ms.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        
         """
         Строковое представление объекта.
 
