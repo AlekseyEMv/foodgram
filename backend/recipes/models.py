@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import get_user_model
 from django.core.validators import (FileExtensionValidator, MinLengthValidator,
                                     MinValueValidator)
@@ -11,32 +13,10 @@ from foodgram_backend.settings import (ADMIN_MAX_LENGTH, INGREDIENT_MAX_LENGTH,
 
 User = get_user_model()
 
+logger = logging.getLogger(__name__)
+
 
 class Ingredient(ms.Model):
-    """Модель ингредиента с названием и единицей измерения.
-
-    Атрибуты:
-        name: Название ингредиента. Максимальная длина — 128 символов.
-        measurement_unit: Единица измерения ингредиента.
-            Максимальная длина — 64 символа.
-
-    Класс Meta:
-        verbose_name: Название модели в единственном числе для админ-панели.
-        verbose_name_plural: Название модели во множественном числе.
-        ordering: Сортировка по умолчанию (по названию).
-
-    Методы:
-        __str__: Возвращает строковое представление в формате:
-            «Название (Единица измерения)».
-
-    Пример использования:
-        >>> flour = Ingredient.objects.create(
-        ...     name='Мука пшеничная',
-        ...     measurement_unit='г'
-        ... )
-        >>> print(flour)
-        Мука пшеничная (г)
-    """
     name = ms.CharField(
         max_length=INGREDIENT_MAX_LENGTH,
         verbose_name='Название'
@@ -56,25 +36,6 @@ class Ingredient(ms.Model):
 
 
 class Tag(ms.Model):
-    """Модель тега с уникальными названием и идентификатором.
-
-    Атрибуты:
-        name: Уникальное название тега. Максимальная длина — 32 символа.
-        slug: Уникальный идентификатор тега. Максимальная длина — 32 символа.
-
-    Класс Meta:
-        verbose_name: Название модели в единственном числе для админ-панели.
-        verbose_name_plural: Название модели во множественном числе.
-        ordering: Сортировка по умолчанию (по названию).
-
-    Методы:
-        __str__: Возвращает строковое представление в формате: «Название».
-
-    Пример использования:
-    >>> breakfast = Tag.objects.create(name='Завтрак', slug='breakfast')
-    >>> print(breakfast)
-    Завтрак
-    """
     name = ms.CharField(
         max_length=TAG_MAX_LENGTH,
         unique=True,
@@ -113,8 +74,9 @@ class Recipe(ms.Model):
     )
     image = ms.ImageField(
         upload_to='recipes/images/',
-        blank=True,
-        null=True,
+        default='default.jpg',
+        # blank=True,
+        # null=True,
         verbose_name='Картинка',
         validators=[
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png'])
@@ -156,61 +118,20 @@ class Recipe(ms.Model):
         return self.name[:ADMIN_MAX_LENGTH]
 
     def get_absolute_url(self):
-        return reverse('recipe-detail', kwargs={'pk': self.pk})
+        return reverse('api:recipes-detail', kwargs={'pk': self.pk})
 
 
 class IngredientRecipe(ms.Model):
-    """Модель связи ингредиента с рецептом, включая количество.
-
-    Атрибуты:
-        ingredient: Ссылка на модель Ingredient.
-            Каскадное удаление при удалении ингредиента.
-            related_name='ingredient' - позволяет обращаться ко всем рецептам
-            ингредиента через ingredient.recipe.all().
-        recipe: Ссылка на модель Recipe.
-            Каскадное удаление при удалении рецепта.
-            related_name='recipe' - позволяет обращаться ко всем ингредиентам
-            рецепта через recipe.ingredient.all().
-        amount: Количество ингредиента в рецепте. Минимальное значение — 1.
-
-    Валидаторы:
-        MinValueValidator - гарантирует, что количество не меньше 1.
-
-    Класс Meta:
-        verbose_name: Название модели в единственном числе для админ-панели.
-        verbose_name_plural: Название модели во множественном числе.
-        ordering: Сортировка по умолчанию (по полю ingredient).
-        constraints: Ограничение уникальности пары ingredient - recipe.
-
-    Методы:
-        __str__: Возвращает строковое представление
-            в формате «(Рецепт) Ингредиент».
-
-    Пример использования:
-    >>> from recipes.models import Recipe, Ingredient
-    >>> recipe = Recipe.objects.get(id=1)
-    >>> flour = Ingredient.objects.get(name='Мука')
-    >>> IngredientRecipe.objects.create(
-    ...     recipe=recipe,
-    ...     ingredient=flour,
-    ...     amount=200
-    ... )
-    <IngredientRecipe: (Рецепт хлеба) Мука>
-
-    Особенности:
-        Гарантирует уникальность связки ингредиент-рецепт.
-        При удалении рецепта или ингредиента автоматически удаляется связь.
-    """
     ingredient = ms.ForeignKey(
         Ingredient,
         on_delete=ms.CASCADE,
-        related_name='ingredient',
+        related_name='recipe_set',
         verbose_name='Ингридиент'
     )
     recipe = ms.ForeignKey(
         Recipe,
         on_delete=ms.CASCADE,
-        related_name='recipe',
+        related_name='ingredientrecipe_set',
         verbose_name='Рецепт'
     )
     amount = ms.PositiveSmallIntegerField(
@@ -243,30 +164,16 @@ class IngredientRecipe(ms.Model):
 
 
 class UsingRecipe(ms.Model):
-    """
-    Абстрактная модель для связи пользователя и рецепта.
-
-    Служит базой для конкретных реализаций (например, избранное
-        или список покупок).
-
-    Атрибуты:
-        user: Ссылка на пользователя, который взаимодействует с рецептом.
-        recipe: Ссылка на рецепт, связанный с пользователем.
-
-    Meta:
-        abstract: Указывает, что модель абстрактная (не создаёт таблицу в БД).
-        constraints: Ограничение уникальности пары пользователь-рецепт.
-    """
     user = ms.ForeignKey(
         User,
         on_delete=ms.CASCADE,
-        related_name='%(class)s_user',
+        related_name='%(class)s_user_set',  # Оставляем как есть
         verbose_name='Пользователь',
     )
     recipe = ms.ForeignKey(
         Recipe,
         on_delete=ms.CASCADE,
-        related_name='%(class)s_recipe',
+        related_name='%(class)s_recipe_set',  # Оставляем как есть
         verbose_name='Рецепт',
     )
 
@@ -281,30 +188,12 @@ class UsingRecipe(ms.Model):
 
 
 class Favorite(UsingRecipe):
-    """
-    Модель для хранения избранных рецептов пользователя.
-
-    Наследует функциональность UsingRecipe, добавляя метаданные для админки.
-
-    Meta:
-        verbose_name: Название модели в единственном числе для админ-панели.
-        verbose_name_plural: Название модели во множественном числе.
-    """
     class Meta(UsingRecipe.Meta):
         verbose_name = 'Избранный рецепт'
         verbose_name_plural = 'Избранные рецепты'
 
 
 class Shopping(UsingRecipe):
-    """
-    Модель для списка покупок, связанных с рецептами.
-
-    Позволяет пользователю сохранять рецепты для дальнейшего использования.
-
-    Meta:
-        verbose_name: Название модели в единственном числе для админ-панели.
-        verbose_name_plural: Название модели во множественном числе.
-    """
     class Meta(UsingRecipe.Meta):
-        verbose_name = "Покупка"
-        verbose_name_plural = "Покупки"
+        verbose_name = 'Покупка'
+        verbose_name_plural = 'Покупки'

@@ -1,5 +1,7 @@
 from django.contrib.auth.models import BaseUserManager
 
+from foodgram.messages import Warnings
+
 
 class CreateUserManager(BaseUserManager):
     use_in_migrations = True
@@ -14,9 +16,9 @@ class CreateUserManager(BaseUserManager):
         **extra_fields
     ):
         if not email:
-            raise ValueError('Укажите email.')
+            raise ValueError(Warnings.EMAIL_REQUIRED)
         if not username:
-            raise ValueError('Укажите имя пользователя.')
+            raise ValueError(Warnings.USERNAME_REQUIRED)
         if not first_name:
             raise ValueError('Укажите своё имя.')
         if not last_name:
