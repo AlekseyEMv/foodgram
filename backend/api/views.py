@@ -1,11 +1,7 @@
 import io
-import logging
-
-from django.http import Http404
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.http import FileResponse
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from reportlab.lib.pagesizes import letter
@@ -13,87 +9,135 @@ from reportlab.pdfgen import canvas
 from rest_framework import status
 from rest_framework import viewsets as vs
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import SearchFilter
-from rest_framework.mixins import CreateModelMixin, DestroyModelMixin
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from foodgram_backend.messages import Warnings
+from foodgram_backend.settings import PDF_FILENAME_NAME
 from recipes.models import Ingredient, Recipe, Shopping, Tag
 from users.models import Follow
 
 from .filters import IngredientFilter, RecipeFilter
+from .mixins import RecipeActionMixin
 from .pagination import CustomPagination
 from .permissions import (IsAuthenticatedAndActive,
+                          IsAuthenticatedAndActiveAndAuthorOrCreateOrReadOnly,
                           IsAuthenticatedAndActiveOrReadOnly)
-from .serializers import (AvatarSerializer, BaseRecipeSerializer,
-                          CustomUserCreateSerializer, CustomUserSerializer,
-                          FavoriteSerializer, IngredientsSerializer,
-                          RecipesGetSerializer, RecipesSerializer,
-                          SetPasswordSerializer, ShoppingAddSerializer,
-                          SubscribeSerializer, SubscriptionsSerializer,
-                          TagsReadSerializer)
+from .serializers import (AvatarSerializer, CustomUserCreateSerializer,
+                          CustomUserSerializer, FavoriteSerializer,
+                          IngredientsSerializer, RecipesGetSerializer,
+                          RecipesSerializer, SetPasswordSerializer,
+                          ShoppingAddSerializer, SubscribeSerializer,
+                          SubscriptionsSerializer, TagsReadSerializer)
+
 
 User = get_user_model()
 
-logger = logging.getLogger(__name__)
-
 
 class ShoppingPDFView(APIView):
+    """
+    API-представление для генерации PDF-файла со списком покупок
+
+    Класс предоставляет эндпоинт для создания PDF-документа,
+    содержащего список рецептов, добавленных пользователем в список покупок.
+    """
     permission_classes = (IsAuthenticatedAndActive,)
 
     def get(self, request):
-        try:
-            if not request.user.is_authenticated:
-                return Response(
-                    {'detail': 'Пользователь не авторизован'},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
+        """
+        Получение PDF-файла со списком покупок
 
-            shoppings = Shopping.objects.filter(user=request.user)
-            recipes = [s.recipe for s in shoppings]
+        Метод обрабатывает GET-запрос и возвращает PDF-файл со списком
+        рецептов из корзины пользователя.
 
-            if not recipes:
-                return Response(
-                    {'detail': 'Список покупок пуст'},
-                    status=status.HTTP_204_NO_CONTENT
-                )
+        Параметры:
+        - request: объект запроса
 
-            buffer = io.BytesIO()
-            pdf = canvas.Canvas(buffer, pagesize=letter)
-            _, height = letter
+        Возвращаемые значения:
+        - 204 NO CONTENT: если список покупок пуст
+        - 500 INTERNAL SERVER ERROR: при ошибке генерации PDF
+        - FileResponse: PDF-файл со списком покупок
+        """
+        shoppings = Shopping.objects.filter(user=request.user)
+        recipes = [s.recipe for s in shoppings]
 
-            pdf.setFont('Helvetica-Bold', 16)
-            pdf.drawString(100, height - 50, 'Список покупок')
-
-            y = height - 100
-            for recipe in recipes:
-                pdf.setFont('Helvetica', 12)
-                pdf.drawString(50, y, f'• {recipe.name}')
-                pdf.drawString(150, y, f'Время: {recipe.cooking_time} мин')
-                y -= 20
-                if y < 50:
-                    pdf.showPage()
-                    y = height - 50
-
-            pdf.save()
-
-            buffer.seek(0)
-            response = FileResponse(
-                buffer, as_attachment=True, filename='shopping_list.pdf'
+        if not recipes:
+            return Response(
+                {'detail': Warnings.SHOPPING_LIST_EMPTY},
+                status=status.HTTP_204_NO_CONTENT
             )
-            response['Content-Type'] = 'application/pdf'
-            return response
 
+        try:
+            pdf_buffer = self.generate_pdf(recipes)
+            return self.create_pdf_response(pdf_buffer)
         except Exception as e:
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    def generate_pdf(self, recipes):
+        """
+        Генерация PDF-документа
+
+        Метод создает PDF-файл с перечнем рецептов из списка покупок.
+
+        Параметры:
+        - recipes: список рецептов для включения в PDF
+
+        Возвращаемое значение:
+        - BytesIO: буфер с сгенерированным PDF
+        """
+        buffer = io.BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=letter)
+        _, height = letter
+
+        pdf.setFont('Helvetica-Bold', 16)
+        pdf.drawString(100, height - 50, 'Список покупок')
+
+        y = height - 100
+        for recipe in recipes:
+            pdf.setFont('Helvetica', 12)
+            pdf.drawString(50, y, f'• {recipe.name}')
+            pdf.drawString(150, y, f'Время: {recipe.cooking_time} мин')
+            y -= 20
+            if y < 50:
+                pdf.showPage()
+                y = height - 50
+
+        pdf.save()
+        buffer.seek(0)
+        return buffer
+
+    def create_pdf_response(self, buffer):
+        """
+        Создание HTTP-ответа с PDF-файлом
+
+        Метод формирует ответ с PDF-документом для скачивания.
+
+        Параметры:
+        - buffer: буфер с PDF-содержимым
+
+        Возвращаемое значение:
+        - FileResponse: HTTP-ответ с PDF-файлом
+        """
+        return FileResponse(
+            buffer,
+            as_attachment=True,
+            filename=PDF_FILENAME_NAME,
+            content_type='application/pdf'
+        )
+
 
 class IngredientsViewSet(vs.ReadOnlyModelViewSet):
+    """
+    ViewSet для работы с ингредиентами
+
+    Предоставляет REST API для получения ингредиентов.
+    Поддерживает фильтрацию и поиск по названию ингредиента.
+    """
     queryset = Ingredient.objects.all()
     serializer_class = IngredientsSerializer
     filter_backends = (DjangoFilterBackend,)
@@ -102,224 +146,176 @@ class IngredientsViewSet(vs.ReadOnlyModelViewSet):
 
 
 class TagsViewSet(vs.ReadOnlyModelViewSet):
+    """
+    ViewSet для работы с тегами
+
+    Предоставляет REST API для списка всех тегов.
+    """
     queryset = Tag.objects.all()
     serializer_class = TagsReadSerializer
     pagination_class = None
 
 
-class RecipesViewSet(vs.ModelViewSet):
+class RecipesViewSet(vs.ModelViewSet, RecipeActionMixin):
+    """
+    API для работы с рецептами.
 
+    Предоставляет возможности для создания, чтения, обновления и
+    удаления рецептов.
+    Включает дополнительные действия для работы с корзиной покупок и избранным.
+    """
+    # queryset для рецептов с предварительной загрузкой связанных объектов
     queryset = Recipe.objects.prefetch_related(
-        'ingredientrecipe_set__ingredient',
         'ingredientrecipe_set',
         'favorite_recipe_set',
         'shopping_recipe_set'
     )
     pagination_class = CustomPagination
-    permission_classes = (IsAuthenticatedAndActiveOrReadOnly),
     filter_backends = (DjangoFilterBackend, SearchFilter,)
     filterset_class = RecipeFilter
     search_fields = ('name',)
 
+    def get_permissions(self):
+        """
+        Получение соответствующих разрешений.
+
+        Возвращает:
+        - Список разрешений в зависимости от действия.
+        """
+        if self.action == 'create':
+            return [IsAuthenticatedAndActiveOrReadOnly()]
+        elif self.action in ['update', 'partial_update', 'destroy']:
+            return [IsAuthenticatedAndActiveAndAuthorOrCreateOrReadOnly()]
+        return [IsAuthenticatedAndActiveOrReadOnly()]
+
     def get_serializer_class(self):
+        """
+        Получение соответствующего сериализатора.
+
+        Возвращает:
+        - Класс сериализатора в зависимости от действия.
+        """
         if self.action in ('list', 'retrieve'):
             return RecipesGetSerializer
         return RecipesSerializer
 
-    def handle_request(self, request, instance=None):
-        try:
-            if instance:
-                if instance.author != request.user:
-                    raise PermissionDenied(
-                        'Пользователь не является автором рецепта'
-                    )
-
-                serializer = self.get_serializer(
-                    instance, data=request.data, partial=False
-                )
-            else:
-                serializer = self.get_serializer(data=request.data)
-
-            serializer.is_valid(raise_exception=True)
-            recipe = serializer.save()
-
-            if instance:
-                recipe.refresh_from_db()
-
-            response_serializer = RecipesGetSerializer(
-                recipe, context={'request': request}
-            )
-
-            status_code = (
-                status.HTTP_200_OK if instance else status.HTTP_201_CREATED
-            )
-            return Response(response_serializer.data, status=status_code)
-
-        except ValidationError as ve:
-            return Response(ve.detail, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response(
-                {'errors': e.detail},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
     def create(self, request, *args, **kwargs):
-        return self.handle_request(request)
+        """
+        Создание нового рецепта.
+
+        Параметр:
+        - request: HTTP-запрос
+
+        Возвращает:
+        - Ответ с созданным рецептом
+        """
+        return self.handle_request(request, RecipesGetSerializer)
 
     def update(self, request, *args, **kwargs):
+        """
+        Обновление существующего рецепта.
+
+        Параметр:
+        - request: HTTP-запрос
+
+        Возвращает:
+        - Ответ с обновленным рецептом
+        """
         instance = self.get_object()
-        if instance.author != request.user:
-            return Response(
-                {'detail': 'Пользователь не является автором рецепта'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        return self.handle_request(request, instance)
-    
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        
-        # Проверяем, является ли пользователь автором
-        if not instance.author == request.user:
-            return Response(
-                {'detail': 'У вас нет прав на удаление этого рецепта'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        instance.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return self.handle_request(request, RecipesGetSerializer, instance)
 
     @action(
         detail=True,
         methods=['POST', 'DELETE'],
-        permission_classes=(IsAuthenticatedAndActive,),
     )
     def shopping_cart(self, request, pk):
-        try:
-            recipe = Recipe.objects.get(id=pk)
-            user = request.user
-            shopping_cart = recipe.shopping_recipe_set.filter(user=user)
+        """
+        Управление списком покупок для рецепта.
 
-            if request.method == 'POST':
-                if shopping_cart.exists():
-                    return Response(
-                        {'detail': 'Рецепт уже добавлен в корзину'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+        Методы:
+        - POST: Добавление в список покупок
+        - DELETE: Удаление из списка покупок
 
-                serializer = ShoppingAddSerializer(
-                    data={'user': user.id, 'recipe': recipe.id},
-                    context={'request': request}
-                )
-                serializer.is_valid(raise_exception=True)
-                serializer.save()
+        Параметр:
+        - request: HTTP-запрос
+        - pk: ID рецепта
 
-                recipe_serializer = BaseRecipeSerializer(
-                    recipe,
-                    context={'request': request}
-                )
-                return Response(
-                    recipe_serializer.data, status=status.HTTP_201_CREATED
-                )
-
-            if shopping_cart.exists():
-                shopping_cart.delete()
-                return Response(status=status.HTTP_204_NO_CONTENT)
-
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-        except Recipe.DoesNotExist:
-            return Response(
-                {'detail': 'Рецепт не найден'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        except Exception:
-            return Response(
-                {'detail': 'Произошла ошибка при обработке запроса'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        Возвращает:
+        - Ответ с результатом операции
+        """
+        return self._handle_action(
+            Recipe,
+            request,
+            pk,
+            'shopping_recipe_set',
+            ShoppingAddSerializer,
+            Warnings.RECIPE_IN_SHOPPING_CART_EXISTS
+        )
 
     @action(
         detail=True,
         methods=['POST', 'DELETE'],
-        permission_classes=(IsAuthenticatedAndActive,),
     )
     def favorite(self, request, pk):
-        try:
-            recipe = Recipe.objects.get(id=pk)
-            user = request.user
-            favorite = recipe.favorite_recipe_set.filter(user=user)
+        """
+        Управление избранными рецептами.
 
-            if request.method == 'POST':
-                if favorite.exists():
-                    return Response(
-                        {'detail': 'Рецепт уже добавлен в избранное'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+        Методы:
+        - POST: Добавление в избранное
+        - DELETE: Удаление из избранного
 
-                serializer = FavoriteSerializer(
-                    data={'user': user.id, 'recipe': recipe.id},
-                    context={'request': request}
-                )
-                serializer.is_valid(raise_exception=True)
-                serializer.save()
+        Параметр:
+        - request: HTTP-запрос
+        - pk: ID рецепта
 
-                return Response(
-                    serializer.data, status=status.HTTP_201_CREATED
-                )
-
-            if favorite.exists():
-                favorite.delete()
-                return Response(status=status.HTTP_204_NO_CONTENT)
-
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-        except Recipe.DoesNotExist:
-            return Response(
-                {'detail': 'Рецепт не найден'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        except User.DoesNotExist:
-            return Response(
-                {'detail': 'Пользователь не найден'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        except ValidationError as e:
-            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
-
-        except Exception:
-            return Response(
-                {'detail': 'Произошла ошибка при обработке запроса'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        Возвращает:
+        - Ответ с результатом операции
+        """
+        return self._handle_action(
+            Recipe,
+            request,
+            pk,
+            'favorite_recipe_set',
+            FavoriteSerializer,
+            Warnings.RECIPE_IN_FAVORITE_EXISTS
+        )
 
     @action(
-        detail=True,
-        methods=['GET'],
-        url_name='get_link',
-        url_path='get-link'
+        detail=True, methods=['GET'], url_name='get_link', url_path='get-link'
     )
     def get_link(self, request, pk):
-        try:
-            recipe = self.get_object()
-            if not recipe:
-                return Response(status=status.HTTP_404_NOT_FOUND)
+        """
+        Получение прямой ссылки на рецепт.
 
-            link = request.build_absolute_uri(recipe.get_absolute_url())
-            return Response({'short-link': link}, status=status.HTTP_200_OK)
+        Метод API предоставляет возможность получить абсолютную ссылку
+        на конкретный рецепт по его идентификатору.
 
-        except Recipe.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response(
-                {'errors': e.detail}, status=status.HTTP_400_BAD_REQUEST
-            )
+        Параметры:
+        - request: входящий HTTP-запрос
+        - pk: уникальный идентификатор рецепта
 
+        Возвращаемые данные:
+        JSON-объект следующего формата:
+        {
+            "short-link": "https://example.com/api/recipes/1/"
+        }
+        """
+        recipe = self.get_object()
+        link = request.build_absolute_uri(recipe.get_absolute_url())
+        return Response({'short-link': link}, status=status.HTTP_200_OK)
 
 
 class UserProfileViewSet(vs.ModelViewSet):
+    """
+    API для управления профилями пользователей, подписками и аватарами
+
+    Предоставляет следующие возможности:
+    - Получение списка пользователей
+    - Создание новых пользователей
+    - Управление профилем текущего пользователя
+    - Работа с подписками
+    - Управление аватаром
+    """
     queryset = User.objects.all()
     serializer_class = CustomUserSerializer
     pagination_class = CustomPagination
@@ -327,11 +323,25 @@ class UserProfileViewSet(vs.ModelViewSet):
     search_fields = ('username', 'email')
 
     def get_serializer_class(self):
+        """
+        Определяет класс сериализатора в зависимости от действия
+
+        Возвращает:
+            CustomUserCreateSerializer - для создания пользователя
+            CustomUserSerializer - для остальных операций
+        """
         if self.action == 'create':
             return CustomUserCreateSerializer
         return CustomUserSerializer
 
     def get_permissions(self):
+        """
+        Определяет разрешения для различных действий
+
+        Возвращает:
+            IsAuthenticatedAndActive - для операций с подписками и профилем
+            AllowAny - для получения списка и создания пользователей
+        """
         if self.action in ('subscriptions', 'me', 'avatar', 'subscribe'):
             return [IsAuthenticatedAndActive()]
         elif self.action in ('list', 'create', 'retrieve'):
@@ -340,6 +350,13 @@ class UserProfileViewSet(vs.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def me(self, request):
+        """
+        Получение информации о текущем пользователе
+
+        Возвращает:
+            JSON-объект с данными профиля пользователя
+            Статус HTTP_200_OK
+        """
         serializer = CustomUserSerializer(
             request.user, context={'request': request}
         )
@@ -350,6 +367,17 @@ class UserProfileViewSet(vs.ModelViewSet):
 
     @action(detail=False, methods=['put', 'delete'], url_path='me/avatar')
     def avatar(self, request):
+        """
+        Управление аватаром пользователя
+
+        Методы:
+            PUT - загрузка нового аватара
+            DELETE - удаление текущего аватара
+
+        Возвращает:
+            При загрузке - URL нового аватара
+            При удалении - статус HTTP_204_NO_CONTENT
+        """
         if request.method == 'PUT':
             if request.data:
                 serializer = AvatarSerializer(
@@ -359,13 +387,15 @@ class UserProfileViewSet(vs.ModelViewSet):
                 )
                 serializer.is_valid(raise_exception=True)
                 serializer.save()
-                response_data = {
-                    'avatar': (
-                        request.user.avatar.url
-                        if request.user.avatar else None
-                    )
-                }
-                return Response(response_data)
+                return Response(
+                    {
+                        'avatar': (
+                            request.user.avatar.url
+                            if request.user.avatar
+                            else None
+                        )
+                    }
+                )
             return Response(status=status.HTTP_400_BAD_REQUEST)
         elif request.method == 'DELETE':
             if request.user.avatar:
@@ -374,6 +404,14 @@ class UserProfileViewSet(vs.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def subscriptions(self, request):
+        """
+        Получение списка подписок текущего пользователя
+
+        Возвращает:
+            Список пользователей, на которых подписан текущий пользователь
+            С пагинацией
+            Статус HTTP_200_OK
+        """
         queryset = User.objects.filter(following__user=self.request.user)
         pages = self.paginate_queryset(queryset)
         serializer = SubscriptionsSerializer(
@@ -388,129 +426,111 @@ class UserProfileViewSet(vs.ModelViewSet):
         url_name='subscribe'
     )
     def subscribe(self, request, pk=None):
+        """
+        Управление подпиской на пользователя
+
+        Методы:
+            POST - создание подписки
+            DELETE - удаление подписки
+
+        Параметры:
+            pk - идентификатор пользователя, на которого подписываемся
+
+        Возвращает:
+            При создании - данные о подписчике
+            При удалении - статус HTTP_201_CREATED
+            """
         try:
-            logger.error("Начало обработки запроса на подписку")
-            
-            # Получаем автора по user_id
-            try:
-                author = get_object_or_404(User, pk=pk)
-            except Http404:
-                logger.error(f"Пользователь с ID {pk} не найден")
-                return Response(
-                    {'detail': 'Пользователь не найден'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            logger.error(f"Получен автор: {author.pk}")
-            logger.error(f"Текущий пользователь: {request.user.pk}")
-            logger.error(f"Входящие данные: {request.data}")
-                        
+            author = get_object_or_404(User, pk=pk)
             if request.method == 'POST':
-                logger.error("Обработка POST запроса")
-                if author == request.user:
-                    return Response(
-                        {'detail': 'Попытка подписаться на самого себя.'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                # Формируем полные данные для подписки
-                subscription_data = {
-                    'author': author.pk
-                }
-                logger.error(f"Данные для подписки: {subscription_data}")
-                
                 serializer = SubscribeSerializer(
-                    data=subscription_data,                    
+                    data={'author': author.pk},
                     context={'request': request, 'view': self}
                 )
-                logger.error("Инициализирован сериализатор")
-                
                 if serializer.is_valid():
-                    logger.error("Данные валидны, сохраняем подписку")
                     serializer.save()
-                    
-                    # Возвращаем данные подписчика
-                    user_serializer = SubscriptionsSerializer(
+                    response_serializer = SubscriptionsSerializer(
                         author,
                         context={'request': request}
                     )
-                    logger.error("Сериализуем данные автора")
                     return Response(
-                        user_serializer.data, 
+                        response_serializer.data,
                         status=status.HTTP_201_CREATED
                     )
-                else:
-                    logger.error(f"Ошибки валидации: {serializer.errors}")
-                logger.error("Данные не прошли валидацию")
                 return Response(
-                    serializer.errors, 
+                    serializer.errors,
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             elif request.method == 'DELETE':
-                logger.error("Обработка DELETE запроса")
                 try:
                     subscription = Follow.objects.get(
                         user=request.user,
                         author=author
                     )
-                    logger.error(f"Найденная подписка: {subscription.pk}")
                     if subscription.user != request.user:
-                        logger.error("Попытка удаления чужой подписки")
                         return Response(
-                            {'detail': 'Нет прав на удаление подписки'},
+                            {'detail': Warnings.SUBSCRIPTION_DELETE_FORBIDDEN},
                             status=status.HTTP_403_FORBIDDEN
                         )
                     subscription.delete()
-                    logger.error("Подписка успешно удалена")
                     return Response(status=status.HTTP_204_NO_CONTENT)
                 except Follow.DoesNotExist:
-                    logger.error("Подписка не существует")
                     return Response(
-                        {'detail': 'Подписка не существует'},
-                        status=status.HTTP_400_BAD_REQUEST  # Изменено на 400
-                    )              
-            
-            logger.error("Неизвестный метод запроса")
+                        {'detail': Warnings.SUBSCRIPTION_NOT_FOUND},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
             return Response(
-                {'detail': 'Неверный метод запроса'},
+                {'detail': Warnings.METHOD_NOT_ALLOWED},
                 status=status.HTTP_405_METHOD_NOT_ALLOWED
             )
-        
-        except Exception as e:
-            logger.error(f"Произошла критическая ошибка: {str(e)}", exc_info=True)
+
+        except Http404:
             return Response(
-                {'detail': 'Произошла внутренняя ошибка сервера'},
+                {'detail': Warnings.USER_NOT_FOUND},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Exception:
+            return Response(
+                {'detail': Warnings.REQUEST_PROCESSING_ERROR},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        finally:
-            logger.error("Завершение обработки запроса на подписку")
-
 
 
 class SetPasswordView(APIView):
+    """
+    API для смены пароля пользователя
+    """
     permission_classes = [IsAuthenticatedAndActive]
 
     def post(self, request):
+        """
+        Метод для смены пароля пользователя
+
+        Возвращает:
+        - 204 No Content при успешной смене пароля
+        - 400 Bad Request при ошибках валидации
+        - 500 Internal Server Error при критических ошибках
+        """
         try:
             user = request.user
-            logger.error(f"Попытка смены пароля для пользователя {user.id}")
-            
-            # Логируем входящие данные
-            logger.error(f"Входящие данные: {request.data}")
-            
+
             serializer = SetPasswordSerializer(
-                user, 
-                data=request.data, 
+                user,
+                data=request.data,
                 context={'request': request}
             )
-            
+
             if serializer.is_valid():
-                logger.error(f"Данные валидны для пользователя {user.id}")
                 user.set_password(serializer.validated_data['new_password'])
                 user.save()
                 return Response(status=status.HTTP_204_NO_CONTENT)
-            
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response(
+                serializer.errors, status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

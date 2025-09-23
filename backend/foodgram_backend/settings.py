@@ -209,3 +209,6 @@ MAX_FILE_SIZE = 5 * 1024 ** 2
 
 # Дефолтное значение для полей моделей.
 DEFAULT_VALUE = 'Не указано'
+
+# Имя PDF-файл со списком рецептов
+PDF_FILENAME_NAME = 'shopping_list.pdf'

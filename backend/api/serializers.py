@@ -14,6 +14,7 @@ from rest_framework import serializers as ss
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.validators import UniqueTogetherValidator, UniqueValidator
 
+from foodgram_backend.messages import Warnings
 from foodgram_backend.settings import AVATAR_MAX_LENGTH, MIN_PASSWORD_LEN
 from users.models import Follow
 from .validators import validate_image_format, validate_username_characters
@@ -644,15 +645,23 @@ class SubscribeSerializer(SubscriptionValidationMixin, ss.ModelSerializer):
 
     def validate(self, attrs):
         user = self.context['request'].user
-        attrs['user'] = user
+        author = attrs['author']
+        if user == author:
+            raise ss.ValidationError(Warnings.SELF_SUBSCRIBE_FORBIDDEN)
         
-        # Добавляем проверку уникальности
-        if Follow.objects.filter(user=user, author=attrs['author']).exists():
-            raise ss.ValidationError({
-                'user': 'Вы уже подписаны на этого пользователя.'
-            })
+        if Follow.objects.filter(user=user, author=author).exists():
+            raise ss.ValidationError(Warnings.SUBSCRIPTION_ALREADY_EXISTS)
         
         return attrs
+        # attrs['user'] = user
+        
+        # Добавляем проверку уникальности
+        # if Follow.objects.filter(user=user, author=attrs['author']).exists():
+        #     raise ss.ValidationError({
+        #         'user': 'Вы уже подписаны на этого пользователя.'
+        #     })
+        
+        # return attrs
 
     def create(self, validated_data):
         user = self.context['request'].user
