@@ -1,17 +1,7 @@
-# from django.contrib.auth import get_user_model
-from django.core.validators import (FileExtensionValidator, MinLengthValidator,
-                                    MinValueValidator)
-# from django.db import models as ms
-# from django.urls import reverse
-
-# from foodgram_backend.settings import (ADMIN_MAX_LENGTH, INGREDIENT_MAX_LENGTH,
-#                                        INGRIGIENTS_MIN_VALUE, MIN_COOKING_TIME,
-#                                        RECIPE_MAX_LENGTH, RECIPE_MIN_LENGTH,
-#                                        TAG_MAX_LENGTH, UNIT_MAX_LENGTH)
 from functools import partial
 
 from django.contrib.auth import get_user_model
-# from django.core.validators import MinLengthValidator
+from django.core.validators import MinLengthValidator
 from django.db import models as ms
 from django.urls import reverse
 
