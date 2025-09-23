@@ -2,12 +2,9 @@ from django.contrib.auth.models import BaseUserManager
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
-from api.validators import (
-    validate_all_required_fields,
-    validate_unique_email,
-    validate_unique_username,
-    validate_superuser_flag
-)
+from api.validators import (validate_all_required_fields,
+                            validate_superuser_flag, validate_unique_email,
+                            validate_unique_username)
 
 
 class CreateUserManager(BaseUserManager):

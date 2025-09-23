@@ -7,7 +7,8 @@ from foodgram_backend.settings import DEBUG, MEDIA_ROOT, MEDIA_URL
 """
 Основной файл конфигурации URL проекта foodgram_backend.
 
-Содержит основные маршруты приложения и настройки для работы в режиме разработки.
+Содержит основные маршруты приложения и настройки для работы в режиме
+разработки.
 """
 urlpatterns = [
     path('admin/', admin.site.urls),

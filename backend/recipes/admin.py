@@ -5,9 +5,23 @@ from foodgram_backend.settings import ADMIN_EMPTY_VALUE
 from .models import (Favorite, Ingredient, IngredientRecipe, Recipe, Shopping,
                      Tag)
 
+"""
+Административная панель для управления моделями приложения
+"""
+
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
+    """
+    Административный интерфейс для управления тегами рецептов
+
+    Атрибуты:
+    - list_display: поля, отображаемые в списке тегов
+    - search_fields: поля для поиска
+    - list_filter: доступные фильтры
+    - empty_value_display: значение для пустых полей
+    - ordering: порядок сортировки
+    """
     list_display = ('id', 'name', 'slug')
     search_fields = ('name', 'slug')
     list_filter = ('name',)
@@ -17,6 +31,16 @@ class TagAdmin(admin.ModelAdmin):
 
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
+    """
+    Административный интерфейс для управления ингредиентами
+
+    Атрибуты:
+    - list_display: поля, отображаемые в списке ингредиентов
+    - search_fields: поля для поиска
+    - list_filter: доступные фильтры
+    - empty_value_display: значение для пустых полей
+    - ordering: порядок сортировки
+    """
     list_display = ('id', 'name', 'measurement_unit')
     search_fields = ('name',)
     list_filter = ('measurement_unit',)
@@ -26,6 +50,17 @@ class IngredientAdmin(admin.ModelAdmin):
 
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
+    """
+    Административный интерфейс для управления рецептами
+
+    Атрибуты:
+    - list_display: поля, отображаемые в списке рецептов
+    - search_fields: поля для поиска
+    - list_filter: доступные фильтры
+    - filter_horizontal: поля для множественного выбора
+    - empty_value_display: значение для пустых полей
+    - ordering: порядок сортировки (по дате публикации, от новых к старым)
+    """
     list_display = (
         'id',
         'name',
@@ -42,6 +77,16 @@ class RecipeAdmin(admin.ModelAdmin):
 
 @admin.register(IngredientRecipe)
 class IngredientRecipeAdmin(admin.ModelAdmin):
+    """
+    Административный интерфейс для управления связями ингредиентов и рецептов
+
+    Атрибуты:
+    - list_display: поля, отображаемые в списке связей
+    - search_fields: поля для поиска
+    - list_filter: доступные фильтры
+    - empty_value_display: значение для пустых полей
+    - ordering: порядок сортировки
+    """
     list_display = ('id', 'ingredient', 'recipe', 'amount')
     search_fields = ('ingredient__name', 'recipe__name')
     list_filter = ('ingredient', 'recipe')
@@ -51,6 +96,17 @@ class IngredientRecipeAdmin(admin.ModelAdmin):
 
 @admin.register(Favorite)
 class FavoriteRecipeAdmin(admin.ModelAdmin):
+    """
+    Административный интерфейс для управления избранными рецептами
+
+    Атрибуты:
+    - list_display: поля, отображаемые в списке избранного
+    - search_fields: поля для поиска
+    - list_filter: доступные фильтры
+    - empty_value_display: значение для пустых полей
+    - ordering: порядок сортировки
+    """
+
     list_display = ('id', 'user', 'recipe')
     search_fields = ('user__username', 'recipe__name')
     list_filter = ('user',)
@@ -60,6 +116,16 @@ class FavoriteRecipeAdmin(admin.ModelAdmin):
 
 @admin.register(Shopping)
 class ShoppingAdmin(admin.ModelAdmin):
+    """
+    Административный интерфейс для управления списком покупок
+
+    Атрибуты:
+    - list_display: поля, отображаемые в списке покупок
+    - search_fields: поля для поиска
+    - list_filter: доступные фильтры
+    - empty_value_display
+    - ordering: порядок сортировки
+    """
     list_display = ('id', 'user', 'recipe')
     search_fields = ('user__username', 'recipe__name')
     list_filter = ('user',)

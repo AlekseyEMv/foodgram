@@ -1,17 +1,22 @@
+from functools import partial
+
 from django.contrib.auth.models import AbstractUser
-from django.db import models as ms
 from django.core.exceptions import ValidationError
+from django.db import models as ms
 from django.utils.translation import gettext_lazy as _
 
+from api.validators import (validate_picture_format,
+                            validate_username_characters,
+                            validate_username_not_me)
 from foodgram_backend.messages import Warnings
-from foodgram_backend.settings import (
-    DEFAULT_VALUE,
-    EMAIL_MAX_LENGTH,
-    USERNAME_MAX_LENGTH
-)
+from foodgram_backend.settings import (AVATAR_MAX_SIZE, DEFAULT_VALUE,
+                                       EMAIL_MAX_LENGTH, USERNAME_MAX_LENGTH)
+
 from .managers import CreateUserManager
-from api.validators import (
-    validate_username_characters, validate_username_not_me
+
+# Валидатор для изображений аватаров с заданным максимальным размером.
+validate_avatar_picture = partial(
+    validate_picture_format, max_file_size=AVATAR_MAX_SIZE
 )
 
 
@@ -64,6 +69,8 @@ class User(AbstractUser):
         upload_to='users/images/',
         blank=True,
         null=True,
+        default='default.jpg',
+        validators=[validate_avatar_picture],
         verbose_name=_('Аватар'),
         help_text='Аватар пользователя'
     )
