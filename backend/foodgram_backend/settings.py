@@ -109,8 +109,9 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_ROOT = '/media'
+MEDIA_URL = '/media/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -203,7 +204,7 @@ MIN_PASSWORD_LEN = 8
 
 # Максимальный размер аватара (1 МБ)
 AVATAR_MAX_SIZE = 1 * 1024 ** 2
-
+AVATAR_MAX_LENGTH = 1024 ** 2
 # Максимальный размер загружаемого файла (5 МБ)
 MAX_FILE_SIZE = 5 * 1024 ** 2
 

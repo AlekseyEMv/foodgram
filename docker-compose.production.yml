@@ -28,7 +28,7 @@ services:
     ports:
       - 8000:80
     volumes:
-      - static:/gateway_static/
+      - static:/staticfiles/
       - media:/media
     depends_on:
       - backend
