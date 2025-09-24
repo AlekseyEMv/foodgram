@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MinLengthValidator
 from django.db import models as ms
 from django.urls import reverse
+from django.utils.text import slugify
 
 from api.validators import create_min_amount_validator, validate_picture_format
 from foodgram_backend.settings import (ADMIN_MAX_LENGTH, INGREDIENT_MAX_LENGTH,
@@ -94,6 +95,25 @@ class Tag(ms.Model):
         """
         return self.name
 
+    def save(self, *args, **kwargs):
+        """
+        Переопределенный метод сохранения объекта
+        Генерирует уникальный slug на основе имени тега
+        """
+        if not self.slug:
+            original_slug = slugify(self.name)
+            slug = original_slug
+            num = 1
+
+            # Проверяем уникальность slug
+            while Tag.objects.filter(slug=slug).exists():
+                slug = f"{original_slug}-{num}"
+                num += 1
+
+            self.slug = slug
+
+        super().save(*args, **kwargs)
+
 
 class Recipe(ms.Model):
     """
@@ -136,7 +156,6 @@ class Recipe(ms.Model):
     )
     tags = ms.ManyToManyField(
         Tag,
-        blank=True,
         verbose_name='Теги',
         help_text='Tеги для категоризации рецепта'
     )

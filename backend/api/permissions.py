@@ -20,6 +20,8 @@ class BaseAuthenticatedActivePermission(BasePermission):
         - True если пользователь валиден
         - False в противном случае
         """
+        if request.user.is_superuser:
+            return True
         return (
             request.user.is_authenticated
             and request.user.is_active

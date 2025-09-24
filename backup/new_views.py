@@ -1,14 +1,10 @@
 import io
-import os
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from rest_framework import status
 from rest_framework import viewsets as vs
@@ -39,106 +35,7 @@ from .serializers import (AvatarSerializer, CustomUserCreateSerializer,
 User = get_user_model()
 
 
-class ShoppingPDFView(APIView):
-    """
-    API-представление для генерации PDF-файла со списком покупок
-
-    Класс предоставляет эндпоинт для создания PDF-документа,
-    содержащего список рецептов, добавленных пользователем в список покупок.
-    """
-    permission_classes = (IsAuthenticatedAndActive,)
-
-    def get(self, request):
-        """
-        Получение PDF-файла со списком покупок
-
-        Метод обрабатывает GET-запрос и возвращает PDF-файл со списком
-        рецептов из корзины пользователя.
-
-        Параметры:
-        - request: объект запроса
-
-        Возвращаемые значения:
-        - 204 NO CONTENT: если список покупок пуст
-        - 500 INTERNAL SERVER ERROR: при ошибке генерации PDF
-        - FileResponse: PDF-файл со списком покупок
-        """
-        shoppings = Shopping.objects.filter(user=request.user)
-        recipes = [s.recipe for s in shoppings]
-
-        if not recipes:
-            return Response(
-                {'detail': Warnings.SHOPPING_LIST_EMPTY},
-                status=status.HTTP_204_NO_CONTENT
-            )
-
-        try:
-            pdf_buffer = self.generate_pdf(recipes)
-            return self.create_pdf_response(pdf_buffer)
-        except Exception as e:
-            return Response(
-                {'error': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    def generate_pdf(self, recipes):
-        """
-        Генерация PDF-документа
-
-        Метод создает PDF-файл с перечнем рецептов из списка покупок.
-
-        Параметры:
-        - recipes: список рецептов для включения в PDF
-
-        Возвращаемое значение:
-        - BytesIO: буфер с сгенерированным PDF
-        """
-        fonts_path = os.path.join(settings.BASE_DIR, 'fonts')
-        pdfmetrics.registerFont(
-            TTFont('DejaVuSans', os.path.join(fonts_path, 'DejaVuSans.ttf'))
-        )
-        buffer = io.BytesIO()
-        pdf = canvas.Canvas(buffer, pagesize=letter)
-        _, height = letter
-
-        pdf.setFont('DejaVuSans', 16)
-        pdf.drawString(100, height - 50, 'Список покупок')
-
-        y = height - 100
-        for recipe in recipes:
-            pdf.setFont('Helvetica', 12)
-            pdf.drawString(50, y, f'• {recipe.name}')
-            pdf.drawString(150, y, f'Время: {recipe.cooking_time} мин')
-            y -= 20
-            if y < 50:
-                pdf.showPage()
-                y = height - 50
-
-        pdf.save()
-        buffer.seek(0)
-        return buffer
-
-    def create_pdf_response(self, buffer):
-        """
-        Создание HTTP-ответа с PDF-файлом
-
-        Метод формирует ответ с PDF-документом для скачивания.
-
-        Параметры:
-        - buffer: буфер с PDF-содержимым
-
-        Возвращаемое значение:
-        - FileResponse: HTTP-ответ с PDF-файлом
-        """
-        return FileResponse(
-            buffer,
-            as_attachment=True,
-            filename=PDF_FILENAME_NAME,
-            content_type='application/pdf'
-        )
-
-
-class IngredientsViewSet(vs.ReadOnlyModelViewSet):
+class IngredientsViewSet(vs.ModelViewSet):
     """
     ViewSet для работы с ингредиентами
 
@@ -150,9 +47,11 @@ class IngredientsViewSet(vs.ReadOnlyModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = IngredientFilter
     pagination_class = None
+    permission_classes = [IsAuthenticatedAndActiveOrReadOnly]
 
 
-class TagsViewSet(vs.ReadOnlyModelViewSet):
+# class TagsViewSet(vs.ReadOnlyModelViewSet):
+class TagsViewSet(vs.ModelViewSet):
     """
     ViewSet для работы с тегами
 
@@ -161,6 +60,8 @@ class TagsViewSet(vs.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagsReadSerializer
     pagination_class = None
+    
+    permission_classes = [IsAuthenticatedAndActiveOrReadOnly]
 
 
 class RecipesViewSet(vs.ModelViewSet, RecipeActionMixin):
@@ -206,30 +107,72 @@ class RecipesViewSet(vs.ModelViewSet, RecipeActionMixin):
             return RecipesGetSerializer
         return RecipesSerializer
 
+    # def create(self, request, *args, **kwargs):
+    #     """
+    #     Создание нового рецепта.
+
+    #     Параметр:
+    #     - request: HTTP-запрос
+
+    #     Возвращает:
+    #     - Ответ с созданным рецептом
+    #     """
+    #     return self.handle_request(request, RecipesGetSerializer)
+
+    # def update(self, request, *args, **kwargs):
+    #     """
+    #     Обновление существующего рецепта.
+
+    #     Параметр:
+    #     - request: HTTP-запрос
+
+    #     Возвращает:
+    #     - Ответ с обновленным рецептом
+    #     """
+    #     instance = self.get_object()
+    #     return self.handle_request(request, RecipesGetSerializer, instance)
     def create(self, request, *args, **kwargs):
         """
         Создание нового рецепта.
-
-        Параметр:
-        - request: HTTP-запрос
-
-        Возвращает:
-        - Ответ с созданным рецептом
+        Теперь поддерживает создание новых ингредиентов и тегов.
         """
-        return self.handle_request(request, RecipesGetSerializer)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Передаем контекст для создания ингредиентов
+        serializer.save(
+            recipe=self.get_object(),
+            context={'request': request}
+        )
+        
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
 
     def update(self, request, *args, **kwargs):
         """
         Обновление существующего рецепта.
-
-        Параметр:
-        - request: HTTP-запрос
-
-        Возвращает:
-        - Ответ с обновленным рецептом
+        Поддерживает обновление и создание новых ингредиентов/тегов.
         """
+        partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        return self.handle_request(request, RecipesGetSerializer, instance)
+        serializer = self.get_serializer(
+            instance,
+            data=request.data,
+            partial=partial
+        )
+        serializer.is_valid(raise_exception=True)
+        
+        # Передаем контекст для обновления ингредиентов
+        self.perform_update(serializer)
+        
+        if getattr(instance, '_prefetched_objects_cache', None):
+            instance._prefetched_objects_cache = {}
+
+        return Response(serializer.data)
 
     @action(
         detail=True,

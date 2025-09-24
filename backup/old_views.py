@@ -1,14 +1,10 @@
 import io
-import os
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from reportlab.lib.pagesizes import letter
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from rest_framework import status
 from rest_framework import viewsets as vs
@@ -35,6 +31,7 @@ from .serializers import (AvatarSerializer, CustomUserCreateSerializer,
                           RecipesSerializer, SetPasswordSerializer,
                           ShoppingAddSerializer, SubscribeSerializer,
                           SubscriptionsSerializer, TagsReadSerializer)
+
 
 User = get_user_model()
 
@@ -93,15 +90,11 @@ class ShoppingPDFView(APIView):
         Возвращаемое значение:
         - BytesIO: буфер с сгенерированным PDF
         """
-        fonts_path = os.path.join(settings.BASE_DIR, 'fonts')
-        pdfmetrics.registerFont(
-            TTFont('DejaVuSans', os.path.join(fonts_path, 'DejaVuSans.ttf'))
-        )
         buffer = io.BytesIO()
         pdf = canvas.Canvas(buffer, pagesize=letter)
         _, height = letter
 
-        pdf.setFont('DejaVuSans', 16)
+        pdf.setFont('Helvetica-Bold', 16)
         pdf.drawString(100, height - 50, 'Список покупок')
 
         y = height - 100
