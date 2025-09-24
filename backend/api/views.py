@@ -322,6 +322,15 @@ class UserProfileViewSet(vs.ModelViewSet):
     filter_backends = (SearchFilter,)
     search_fields = ('username', 'email')
 
+    def get_queryset(self):
+        """
+        Добавляем prefetch_related для оптимизации.
+        """
+        return User.objects.prefetch_related(
+            'following',  # Предзагрузка связанных объектов Follow
+            'follower'    # Если есть обратная связь
+        )
+
     def get_serializer_class(self):
         """
         Определяет класс сериализатора в зависимости от действия

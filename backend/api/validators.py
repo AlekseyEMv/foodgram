@@ -26,6 +26,29 @@ def validate_required_field(value, field_name):
         )
 
 
+def validate_ids_not_null_unique_collection(
+    values, values_model, values_prefix
+):
+    ID_FIELD = 'id'
+    validate_required_field(values, values_prefix)
+    value_ids = [value[ID_FIELD] for value in values]
+    unique_value_ids = set(value_ids)
+    if len(value_ids) != len(set(value_ids)):
+        raise ValidationError(
+            getattr(Warnings, f'{values_prefix.upper()}_DUPLICATE_ERROR')
+        )
+    existing_ids = set(
+        values_model.objects.filter(id__in=value_ids)
+        .values_list(ID_FIELD, flat=True)
+    )
+    missing_ids = unique_value_ids - existing_ids
+    if missing_ids:
+        raise ValidationError(
+            getattr(Warnings, f'{values_prefix.upper()}_NOT_FOUND')
+        )
+    return values
+
+
 def validate_unique_email(value, model):
     """
     Валидатор уникальности email
@@ -101,6 +124,21 @@ def validate_picture_format(value, max_file_size):
         )
 
 
+def validate_image(value, max_file_size):
+    try:
+        validate_picture_format(value, max_file_size)
+    except Exception:
+        raise ValidationError(Warnings.IMAGE_REQUIRED)
+
+
+def validate_positive_amount(value):
+    """
+    Валидатор положительного количества ингредиента
+    """
+    if value <= 0:
+        raise ValidationError('Количество должно быть положительным числом.')
+
+
 def create_min_amount_validator(min_value):
     """
     Создает валидатор сравнения минимального значения с заданным числом.
@@ -120,6 +158,17 @@ def create_min_amount_validator(min_value):
     )
 
 
+def validate_model_class_instance(instance, model_class):
+    """
+    Валидатор для проверки типа объекта IngredientRecipe
+    """
+    if not isinstance(instance, model_class):
+        raise ValidationError({
+            'error': f'Ожидался объект {model_class}',
+            'instance': instance,
+            'type': type(instance).__name__
+        })
+
 
 def validate_username_not_me(value):
     if value in FORBIDDEN_USERNAMES:
@@ -135,24 +184,3 @@ def validate_username_characters(value):
             ('Ник пользователя может состоять из букв, цифр, '
              'а также символов @.+-_')
         )
-
-
-def validate_image_format(value):
-    try:
-        if value:
-            image = Image.open(BytesIO(value.read()))
-            if image.format not in ['JPEG', 'PNG', 'GIF']:
-                raise ValidationError('Допустимые форматы: JPEG, PNG, GIF')
-            return value
-    except Exception as e:
-        raise ValidationError(f'Ошибка при проверке изображения: {str(e)}')
-    
-    
-    
-class NonEmptyCharField(ss.CharField):
-    default_validators = [
-        RegexValidator(
-            regex=r'^\S+$',
-            message='Поле не может быть пустым или содержать только пробелы.'
-        )
-    ]
