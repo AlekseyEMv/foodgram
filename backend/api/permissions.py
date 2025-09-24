@@ -1,62 +1,96 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 
-class IsAuthenticatedAndActive(BasePermission):
-    def has_permission(self, request, view):
+class BaseAuthenticatedActivePermission(BasePermission):
+    """
+    Базовое разрешение, требующее аутентификации и активности пользователя.
+
+    Предоставляет общие методы для проверки:
+    - Аутентификации пользователя
+    - Активности пользователя
+    """
+    def is_user_valid(self, request):
+        """
+        Проверяет, что пользователь аутентифицирован и активен.
+
+        Параметры:
+        - request: объект запроса
+
+        Возвращает:
+        - True если пользователь валиден
+        - False в противном случае
+        """
         return (
             request.user.is_authenticated
             and request.user.is_active
         )
 
+    def is_safe_method(self, request):
+        """
+        Проверяет, является ли метод безопасным (GET, HEAD, OPTIONS).
 
-class IsAuthenticatedAndActiveOrReadOnly(BasePermission):
+        Параметры:
+        - request: объект запроса
+
+        Возвращает:
+        - True если метод безопасный
+        - False в противном случае
+        """
+        return request.method in SAFE_METHODS
+
+
+class IsAuthenticatedAndActive(BaseAuthenticatedActivePermission):
+    """
+    Разрешение, требующее аутентификации и активности пользователя.
+
+    Позволяет доступ только аутентифицированным и активным пользователям.
+    """
+
     def has_permission(self, request, view):
-        if request.method in SAFE_METHODS:
-            return True
-        return request.user.is_authenticated and request.user.is_active
+        return self.is_user_valid(request)
 
 
-class IsAuthenticatedAndActiveAndAuthorOrCreateOrReadOnly(BasePermission):
+class IsAuthenticatedAndActiveOrReadOnly(BaseAuthenticatedActivePermission):
+    """
+    Разрешение на чтение для всех и запись только для аутентифицированных
+    и активных пользователей.
+
+    Предоставляет:
+    - Полный доступ для аутентифицированных активных пользователей
+    - Только чтение для остальных
+    """
+
     def has_permission(self, request, view):
-        # Для безопасных методов (GET, HEAD, OPTIONS) разрешаем всем
-        if request.method in SAFE_METHODS:
+        return (
+            self.is_safe_method(request)
+            or self.is_user_valid(request)
+        )
+
+
+class IsAuthenticatedAndActiveAndAuthorOrCreateOrReadOnly(
+    BaseAuthenticatedActivePermission
+):
+    """
+    Разрешение для операций с объектами, требующее:
+    - Аутентификации и активности для создания
+    - Права владельца для изменения/удаления
+    - Чтения для всех
+    """
+
+    def has_permission(self, request, view):
+        if self.is_safe_method(request):
             return True
-        
-        # Для POST проверяем только авторизацию
+
         if request.method == 'POST':
-            return request.user.is_authenticated and request.user.is_active
-        
+            return self.is_user_valid(request)
+
         return super().has_permission(request, view)
 
     def has_object_permission(self, request, view, obj):
-        # Для безопасных методов разрешаем доступ
-        if request.method in SAFE_METHODS:
+        if self.is_safe_method(request):
             return True
-        
-        # Для остальных методов проверяем права
+
         return (
-            request.user.is_authenticated
-            and request.user.is_active
+            self.is_user_valid(request)
             and obj.author == request.user
-        )
-
-        
-        
-class IsAuthor(BasePermission):
-    def has_object_permission(self, request, view, obj):
-        return obj.owner == request.user
-
-
-class IsAuthenticatedAndActiveAndOwner(IsAuthenticatedAndActive):
-    def has_object_permission(self, request, view, obj):
-        if request.method in SAFE_METHODS:
-            return True
-        return obj.author == request.user
-
-
-class IsOwnerOrReadOnly(BasePermission):
-    def has_object_permission(self, request, view, obj):
-        return (
-            request.method in SAFE_METHODS
-            or obj.owner == request.user
         )

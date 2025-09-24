@@ -8,7 +8,9 @@ class Warnings:
     FILE_SIZE_EXCEEDS_LIMIT = 'Размер файла превышает допустимый лимит'
     FIRST_NAME_REQUIRED = 'Укажите своё имя'
     FLAG_SET_REQUIRED = 'Установите флаг'
-    INGREDIENTS_DUPLICATE_ERROR = 'В рецепте не могут быть повторяющиеся ингридиентов'
+    INGREDIENTS_DUPLICATE_ERROR = (
+        'В рецепте не могут быть повторяющиеся ингридиентов'
+    )
     INGREDIENTS_NOT_FOUND = 'В рецепте не найдены ингридиенты'
     INGREDIENTS_REQUIRED = 'Ингредиенты не могут быть пустыми'
     INTEGRITY_ERROR = 'Ошибка целостности данных'
@@ -26,7 +28,9 @@ class Warnings:
     PASSWORD_CHANGE_REQUIRED = 'Новый пароль не может совпадать со старым'
     PASSWORD_CURRENT_INVALID = 'Неверный текущий пароль'
     PASSWORD_TOO_SHORT_MESSAGE = 'Пароль должен быть не менее'
-    POSITIVE_VALUE_REQUIRED = 'Минимальное значение должно быть положительным числом'
+    POSITIVE_VALUE_REQUIRED = (
+        'Минимальное значение должно быть положительным числом'
+    )
     RECIPE_CONTEXT_MISSING = 'Отсутствует обязательный контекст рецепта'
     RECIPE_NOT_FOUND = 'Рецепт не найден'
     RECIPE_IN_FAVORITE_EXISTS = 'Рецепт уже добавлен в избранное'

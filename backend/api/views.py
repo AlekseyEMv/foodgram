@@ -32,7 +32,6 @@ from .serializers import (AvatarSerializer, CustomUserCreateSerializer,
                           ShoppingAddSerializer, SubscribeSerializer,
                           SubscriptionsSerializer, TagsReadSerializer)
 
-
 User = get_user_model()
 
 
