@@ -1,7 +1,6 @@
 volumes:
   pg_data:
-  backend_static:
-  frontend_static:
+  static:
   media:
 
 services:
@@ -14,7 +13,7 @@ services:
     image: alekseyemv/foodgram_backend
     env_file: .env
     volumes:
-      - backend_static:/backend_static
+      - static:/backend_static
       - media:/media
     depends_on:
       - db
@@ -23,14 +22,13 @@ services:
     image: alekseyemv/foodgram_frontend
     command: cp -r /app/build/. /frontend_static/
     volumes:
-      - frontend_static:/frontend_static
+      - static:/frontend_static
   gateway:
     image: alekseyemv/foodgram_gateway
     ports:
       - 8000:80
     volumes:
-      - backend_static:/staticfiles
-      - frontend_static:/frontend_static
+      - static:/gateway_static/
       - media:/media
     depends_on:
       - backend
