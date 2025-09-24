@@ -59,8 +59,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'foodgram_backend.wsgi.application'
 
-IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'False').lower() == 'false'
-# IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'True').lower() == 'true'
+# IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'False').lower() == 'false'
+IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'True').lower() == 'true'
 
 if not IS_POSTGRESQL_ENGINE:
     DATABASES = {
