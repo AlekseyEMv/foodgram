@@ -7,7 +7,8 @@ from django.utils.translation import gettext_lazy as _
 from PIL import Image
 
 from foodgram_backend.messages import Warnings
-from foodgram_backend.settings import FORBIDDEN_USERNAMES, USERNAME_REGEX
+from foodgram_backend.settings import (ALLOWED_IMAGE_FORMATS,
+                                       FORBIDDEN_USERNAMES, USERNAME_REGEX)
 
 
 def validate_required_field(value, field_name):
@@ -161,7 +162,6 @@ def validate_picture_format(value, max_file_size):
 
     if value.size > max_file_size:
         raise ValidationError(_(Warnings.FILE_SIZE_EXCEEDS_LIMIT))
-    ALLOWED_IMAGE_FORMATS = ('JPG', 'JPEG', 'PNG', 'GIF')
 
     try:
         position = value.tell()
@@ -196,12 +196,17 @@ def validate_image(value, max_file_size):
     - max_file_size: максимально допустимый размер файла
 
     Вызывает:
-    - ValidationError если изображение не прошло проверку
+    - ValidationError с конкретным сообщением об ошибке
     """
+    if not value:
+        raise ValidationError(Warnings.IMAGE_REQUIRED)
+
     try:
         validate_picture_format(value, max_file_size)
+    except ValidationError as e:
+        raise ValidationError(str(e))
     except Exception:
-        raise ValidationError(Warnings.IMAGE_REQUIRED)
+        raise ValidationError(Warnings.IMAGE_PROCESSING_ERROR)
 
 
 def validate_positive_amount(value):

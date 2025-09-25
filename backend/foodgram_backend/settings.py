@@ -2,6 +2,9 @@ import os
 from pathlib import Path
 
 from django.core.management.utils import get_random_secret_key
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -59,10 +62,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'foodgram_backend.wsgi.application'
 
-# IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'False').lower() == 'false'
 IS_POSTGRESQL_ENGINE = os.getenv('IS_POSTGRESQL', 'True').lower() == 'true'
 
-if not IS_POSTGRESQL_ENGINE:
+if IS_POSTGRESQL_ENGINE:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -109,7 +111,9 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Список поддерживаемых форматов изображений
+ALLOWED_IMAGE_FORMATS = ('JPG', 'JPEG', 'PNG', 'GIF', 'WEBP')
+
 MEDIA_ROOT = '/media'
 MEDIA_URL = '/media/'
 
@@ -213,3 +217,14 @@ DEFAULT_VALUE = 'Не указано'
 
 # Имя PDF-файл со списком рецептов
 PDF_FILENAME_NAME = 'shopping_list.pdf'
+
+# Заголовок списка рецептов в PDF-файл
+PDF_DOCUMENT_HEADER = 'Список покупок'
+
+# Расстояние от края листа до текста
+PDF_PAGE_MARGIN = 50
+PDF_HEADER_MARGIN = 100
+
+# Размер шрифта в файле PDF-файл
+PDF_HEADER_FONT_SIZE = 16
+PDF_TEXT_FONT_SIZE = 12

@@ -1,32 +1,10 @@
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 
 from foodgram_backend.settings import ADMIN_EMPTY_VALUE
 
 from .models import (Favorite, Ingredient, IngredientRecipe, Recipe, Shopping,
                      Tag)
-
-"""
-Административная панель для управления моделями приложения
-"""
-
-
-@admin.register(Tag)
-class TagAdmin(admin.ModelAdmin):
-    """
-    Административный интерфейс для управления тегами рецептов
-
-    Атрибуты:
-    - list_display: поля, отображаемые в списке тегов
-    - search_fields: поля для поиска
-    - list_filter: доступные фильтры
-    - empty_value_display: значение для пустых полей
-    - ordering: порядок сортировки
-    """
-    list_display = ('id', 'name', 'slug')
-    search_fields = ('name', 'slug')
-    list_filter = ('name',)
-    empty_value_display = ADMIN_EMPTY_VALUE
-    ordering = ('name',)
 
 
 @admin.register(Ingredient)
@@ -34,18 +12,73 @@ class IngredientAdmin(admin.ModelAdmin):
     """
     Административный интерфейс для управления ингредиентами
 
+    Предоставляет интерфейс для создания, редактирования и просмотра
+    ингредиентов. Включает настройки отображения, поиска и фильтрации.
+
     Атрибуты:
     - list_display: поля, отображаемые в списке ингредиентов
-    - search_fields: поля для поиска
-    - list_filter: доступные фильтры
+        (название и единица измерения)
+    - search_fields: поля для поиска (по названию)
+    - list_filter: доступные фильтры (по единице измерения)
     - empty_value_display: значение для пустых полей
-    - ordering: порядок сортировки
+        (используется системное значение)
+    - ordering: порядок сортировки (по названию в алфавитном порядке)
+    - fieldsets: группировка полей формы
     """
-    list_display = ('id', 'name', 'measurement_unit')
+    list_display = ('name', 'measurement_unit')
     search_fields = ('name',)
     list_filter = ('measurement_unit',)
-    empty_value_display = ADMIN_EMPTY_VALUE
     ordering = ('name',)
+    empty_value_display = ADMIN_EMPTY_VALUE
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'measurement_unit')
+        }),
+    )
+
+
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    """
+    Административный интерфейс для управления тегами рецептов
+
+    Позволяет создавать, редактировать и управлять тегами для категоризации
+    рецептов.
+
+    Атрибуты:
+    - list_display: поля для отображения (название и slug)
+    - search_fields: поиск по названию тега
+    - readonly_fields: поля только для чтения (slug)
+    - prepopulated_fields: автоматическое заполнение slug на основе названия
+    - empty_value_display: значение для пустых полей
+    - fieldsets: структура формы
+    """
+    list_display = ('name', 'slug')
+    search_fields = ('name',)
+    readonly_fields = ('slug',)
+    prepopulated_fields = {'slug': ('name',)}
+    empty_value_display = ADMIN_EMPTY_VALUE
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'slug')
+        }),
+    )
+
+
+class IngredientRecipeInline(admin.TabularInline):
+    """
+    Inline-форма для управления ингредиентами в рецепте
+
+    Позволяет добавлять и редактировать ингредиенты прямо в форме рецепта.
+
+    Атрибуты:
+    - model: связанная модель IngredientRecipe
+    - extra: количество дополнительных форм по умолчанию
+    - autocomplete_fields: поля с автодополнением
+    """
+    model = IngredientRecipe
+    extra = 1
+    autocomplete_fields = ['ingredient']
 
 
 @admin.register(Recipe)
@@ -53,45 +86,38 @@ class RecipeAdmin(admin.ModelAdmin):
     """
     Административный интерфейс для управления рецептами
 
+    Основной интерфейс для работы с рецептами, включающий:
+    - Управление ингредиентами
+    - Работу с тегами
+    - Редактирование основной информации
+
     Атрибуты:
-    - list_display: поля, отображаемые в списке рецептов
+    - list_display: поля для отображения в списке
     - search_fields: поля для поиска
     - list_filter: доступные фильтры
-    - filter_horizontal: поля для множественного выбора
+    - readonly_fields: поля только для чтения
+    - filter_horizontal: множественный выбор тегов
+    - inlines: встроенные формы для ингредиентов
+    - ordering: сортировка по дате публикации
     - empty_value_display: значение для пустых полей
-    - ordering: порядок сортировки (по дате публикации, от новых к старым)
+    - fieldsets: структура формы
     """
-    list_display = (
-        'id',
-        'name',
-        'author',
-        'cooking_time',
-        'pub_date'
-    )
-    search_fields = ('name', 'text')
-    list_filter = ('author', 'tags', 'pub_date')
+    list_display = ('name', 'author', 'pub_date', 'cooking_time')
+    search_fields = ('name', 'text', 'author__username')
+    list_filter = ('pub_date', 'tags')
+    readonly_fields = ('pub_date',)
     filter_horizontal = ('tags',)
-    empty_value_display = ADMIN_EMPTY_VALUE
+    inlines = [IngredientRecipeInline]
     ordering = ('-pub_date',)
-
-
-@admin.register(IngredientRecipe)
-class IngredientRecipeAdmin(admin.ModelAdmin):
-    """
-    Административный интерфейс для управления связями ингредиентов и рецептов
-
-    Атрибуты:
-    - list_display: поля, отображаемые в списке связей
-    - search_fields: поля для поиска
-    - list_filter: доступные фильтры
-    - empty_value_display: значение для пустых полей
-    - ordering: порядок сортировки
-    """
-    list_display = ('id', 'ingredient', 'recipe', 'amount')
-    search_fields = ('ingredient__name', 'recipe__name')
-    list_filter = ('ingredient', 'recipe')
     empty_value_display = ADMIN_EMPTY_VALUE
-    ordering = ('ingredient',)
+    fieldsets = (
+        (_('Основная информация'), {
+            'fields': ('name', 'author', 'image', 'text', 'cooking_time')
+        }),
+        (_('Теги'), {
+            'fields': ('tags',)
+        }),
+    )
 
 
 @admin.register(Favorite)
@@ -99,19 +125,22 @@ class FavoriteRecipeAdmin(admin.ModelAdmin):
     """
     Административный интерфейс для управления избранными рецептами
 
-    Атрибуты:
-    - list_display: поля, отображаемые в списке избранного
-    - search_fields: поля для поиска
-    - list_filter: доступные фильтры
-    - empty_value_display: значение для пустых полей
-    - ordering: порядок сортировки
-    """
+    Позволяет просматривать и управлять списком избранных рецептов
+    пользователей.
 
-    list_display = ('id', 'user', 'recipe')
+    Атрибуты:
+    - list_display: поля для отображения (пользователь и рецепт)
+    - search_fields: поиск по пользователю и названию рецепта
+    - list_filter: фильтрация по пользователю
+    - readonly_fields: поля только для чтения (пользователь и рецепт)
+    - empty_value_display: значение для пустых полей
+        (используется системное значение)
+    """
+    list_display = ('user', 'recipe')
     search_fields = ('user__username', 'recipe__name')
     list_filter = ('user',)
+    readonly_fields = ('user', 'recipe')
     empty_value_display = ADMIN_EMPTY_VALUE
-    ordering = ('id',)
 
 
 @admin.register(Shopping)
@@ -119,15 +148,18 @@ class ShoppingAdmin(admin.ModelAdmin):
     """
     Административный интерфейс для управления списком покупок
 
+    Позволяет управлять списками покупок пользователей.
+
     Атрибуты:
-    - list_display: поля, отображаемые в списке покупок
-    - search_fields: поля для поиска
-    - list_filter: доступные фильтры
-    - empty_value_display
-    - ordering: порядок сортировки
+    - list_display: поля для отображения (пользователь и рецепт)
+    - search_fields: поиск по пользователю и названию рецепта
+    - list_filter: фильтрация по пользователю
+    - readonly_fields: поля только для чтения (пользователь и рецепт)
+    - empty_value_display: значение для пустых полей
+        (используется системное значение)
     """
-    list_display = ('id', 'user', 'recipe')
+    list_display = ('user', 'recipe')
     search_fields = ('user__username', 'recipe__name')
     list_filter = ('user',)
+    readonly_fields = ('user', 'recipe')
     empty_value_display = ADMIN_EMPTY_VALUE
-    ordering = ('id',)

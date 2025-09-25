@@ -1,8 +1,10 @@
 import io
 import os
+from collections import defaultdict
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -19,7 +21,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from foodgram_backend.messages import Warnings
-from foodgram_backend.settings import PDF_FILENAME_NAME
+from foodgram_backend.settings import (PDF_DOCUMENT_HEADER, PDF_FILENAME_NAME,
+                                       PDF_HEADER_FONT_SIZE, PDF_HEADER_MARGIN,
+                                       PDF_PAGE_MARGIN, PDF_TEXT_FONT_SIZE)
 from recipes.models import Ingredient, Recipe, Shopping, Tag
 from users.models import Follow
 
@@ -43,8 +47,10 @@ class ShoppingPDFView(APIView):
     """
     API-представление для генерации PDF-файла со списком покупок
 
-    Класс предоставляет эндпоинт для создания PDF-документа,
-    содержащего список рецептов, добавленных пользователем в список покупок.
+    Класс предоставляет эндпоинт для создания PDF-документа, содержащего
+    агрегированный список ингредиентов из всех рецептов, добавленных
+    пользователем в список покупок. PDF-файл включает суммарное количество
+    каждого ингредиента, необходимого для приготовления всех выбранных блюд.
     """
     permission_classes = (IsAuthenticatedAndActive,)
 
@@ -52,28 +58,34 @@ class ShoppingPDFView(APIView):
         """
         Получение PDF-файла со списком покупок
 
-        Метод обрабатывает GET-запрос и возвращает PDF-файл со списком
-        рецептов из корзины пользователя.
+        Обрабатывает GET-запрос, собирает все рецепты из списка покупок
+        пользователя, агрегирует ингредиенты и генерирует PDF-документ.
 
         Параметры:
-        - request: объект запроса
+        - request: объект входящего HTTP-запроса
 
         Возвращаемые значения:
+        - 200 OK: PDF-файл со списком покупок
         - 204 NO CONTENT: если список покупок пуст
         - 500 INTERNAL SERVER ERROR: при ошибке генерации PDF
-        - FileResponse: PDF-файл со списком покупок
         """
         shoppings = Shopping.objects.filter(user=request.user)
         recipes = [s.recipe for s in shoppings]
+        ingredients_dict = defaultdict(int)
+        for recipe in recipes:
+            for ingredient_recipe in recipe.ingredientrecipe_set.all():
+                ingredients_dict[
+                    ingredient_recipe.ingredient
+                ] += ingredient_recipe.amount
 
-        if not recipes:
+        if not ingredients_dict:
             return Response(
                 {'detail': Warnings.SHOPPING_LIST_EMPTY},
                 status=status.HTTP_204_NO_CONTENT
             )
 
         try:
-            pdf_buffer = self.generate_pdf(recipes)
+            pdf_buffer = self.generate_pdf(ingredients_dict)
             return self.create_pdf_response(pdf_buffer)
         except Exception as e:
             return Response(
@@ -81,38 +93,54 @@ class ShoppingPDFView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def generate_pdf(self, recipes):
+    def generate_pdf(self, ingredients_dict):
         """
-        Генерация PDF-документа
+        Генерация PDF-документа со списком ингредиентов
 
-        Метод создает PDF-файл с перечнем рецептов из списка покупок.
+        Создает PDF-файл, содержащий агрегированный список всех ингредиентов
+        из выбранных рецептов с указанием общего количества каждого
+        ингредиента.
 
         Параметры:
-        - recipes: список рецептов для включения в PDF
+        - ingredients_dict: словарь с ингредиентами и их суммарным количеством
 
         Возвращаемое значение:
-        - BytesIO: буфер с сгенерированным PDF
+        - BytesIO: буфер с сгенерированным PDF-документом
         """
         fonts_path = os.path.join(settings.BASE_DIR, 'fonts')
-        pdfmetrics.registerFont(
-            TTFont('DejaVuSans', os.path.join(fonts_path, 'DejaVuSans.ttf'))
-        )
+        try:
+            pdfmetrics.registerFont(
+                TTFont(
+                    'DejaVuSans', os.path.join(fonts_path, 'DejaVuSans.ttf')
+                )
+            )
+        except Exception as e:
+            raise ValidationError(
+                f'{Warnings.FONT_REGISTRATION_ERROR} {str(e)}'
+            )
+
         buffer = io.BytesIO()
         pdf = canvas.Canvas(buffer, pagesize=letter)
         _, height = letter
 
-        pdf.setFont('DejaVuSans', 16)
-        pdf.drawString(100, height - 50, 'Список покупок')
+        pdf.setFont('DejaVuSans', PDF_HEADER_FONT_SIZE)
+        pdf.drawString(
+            PDF_HEADER_MARGIN, height - PDF_PAGE_MARGIN, PDF_DOCUMENT_HEADER
+        )
 
-        y = height - 100
-        for recipe in recipes:
-            pdf.setFont('Helvetica', 12)
-            pdf.drawString(50, y, f'• {recipe.name}')
-            pdf.drawString(150, y, f'Время: {recipe.cooking_time} мин')
+        y = height - PDF_HEADER_MARGIN
+        pdf.setFont('DejaVuSans', PDF_TEXT_FONT_SIZE)
+
+        for ingredient, amount in ingredients_dict.items():
+            pdf.drawString(
+                PDF_PAGE_MARGIN,
+                y,
+                f'- {ingredient.name}: {amount} {ingredient.measurement_unit}'
+            )
             y -= 20
-            if y < 50:
+            if y < PDF_PAGE_MARGIN:
                 pdf.showPage()
-                y = height - 50
+                y = height - PDF_PAGE_MARGIN
 
         pdf.save()
         buffer.seek(0)
@@ -120,15 +148,15 @@ class ShoppingPDFView(APIView):
 
     def create_pdf_response(self, buffer):
         """
-        Создание HTTP-ответа с PDF-файлом
+        Формирование HTTP-ответа с PDF-файлом
 
-        Метод формирует ответ с PDF-документом для скачивания.
+        Создает HTTP-ответ для скачивания сгенерированного PDF-файла.
 
         Параметры:
-        - buffer: буфер с PDF-содержимым
+        - buffer: буфер с содержимым PDF-документа
 
         Возвращаемое значение:
-        - FileResponse: HTTP-ответ с PDF-файлом
+        - FileResponse: HTTP-ответ с PDF-файлом для скачивания
         """
         return FileResponse(
             buffer,

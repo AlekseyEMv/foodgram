@@ -8,6 +8,8 @@ class Warnings:
     FILE_SIZE_EXCEEDS_LIMIT = 'Размер файла превышает допустимый лимит'
     FIRST_NAME_REQUIRED = 'Укажите своё имя'
     FLAG_SET_REQUIRED = 'Установите флаг'
+    FONT_PATH_NOT_FOUND = 'Путь к шрифтам не существует'
+    FONT_REGISTRATION_ERROR = 'Ошибка регистрации шрифта'
     INGREDIENTS_DUPLICATE_ERROR = (
         'В рецепте не могут быть повторяющиеся ингридиентов'
     )
