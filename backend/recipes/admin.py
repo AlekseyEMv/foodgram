@@ -60,7 +60,7 @@ class TagAdmin(admin.ModelAdmin):
     empty_value_display = ADMIN_EMPTY_VALUE
     fieldsets = (
         (None, {
-            'fields': ('name', 'slug')
+            'fields': ('name',)
         }),
     )
 
