@@ -1,10 +1,9 @@
-from io import BytesIO
+import os
 from re import fullmatch
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.utils.translation import gettext_lazy as _
-from PIL import Image
 
 from foodgram_backend.messages import Warnings
 from foodgram_backend.settings import (ALLOWED_IMAGE_FORMATS,
@@ -159,29 +158,15 @@ def validate_picture_format(value, max_file_size):
     - ValidationError если размер изображения большой или формат изображения
     не поддерживается.
     """
-
     if value.size > max_file_size:
         raise ValidationError(_(Warnings.FILE_SIZE_EXCEEDS_LIMIT))
+    ext = os.path.splitext(value.name)[1][1:].upper()  # [1:] убирает точку
 
-    try:
-        position = value.tell()
-
-        with Image.open(BytesIO(value.read())) as img:
-            image_format = img.format.upper()
-            if image_format not in ALLOWED_IMAGE_FORMATS:
-                raise ValidationError(
-                    _('Допустимые форматы: {formats}').format(
-                        formats=', '.join(ALLOWED_IMAGE_FORMATS)
-                    )
-                )
-
-            value.seek(position)
-
-    except Image.UnidentifiedImageError:
-        raise ValidationError(_(Warnings.FILE_FORMAT_DETECTION_ERROR))
-    except Exception as e:
+    if ext not in ALLOWED_IMAGE_FORMATS:
         raise ValidationError(
-            _('Ошибка при проверке изображения: {error}').format(error=str(e))
+            _('Допустимые форматы: {formats}').format(
+                formats=', '.join(ALLOWED_IMAGE_FORMATS)
+            )
         )
 
 

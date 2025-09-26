@@ -111,7 +111,6 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Список поддерживаемых форматов изображений
 ALLOWED_IMAGE_FORMATS = ('JPG', 'JPEG', 'PNG', 'GIF', 'WEBP')
 
 MEDIA_ROOT = '/media'

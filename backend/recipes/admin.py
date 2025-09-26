@@ -1,10 +1,14 @@
 from django.contrib import admin
+from django.core.exceptions import ValidationError
+from django.forms import ModelForm
 from django.utils.translation import gettext_lazy as _
 
+from foodgram_backend.messages import Warnings
 from foodgram_backend.settings import ADMIN_EMPTY_VALUE
 
 from .models import (Favorite, Ingredient, IngredientRecipe, Recipe, Shopping,
                      Tag)
+from .utils import generate_unique_slug
 
 
 @admin.register(Ingredient)
@@ -37,30 +41,101 @@ class IngredientAdmin(admin.ModelAdmin):
     )
 
 
+class TagAdminForm(ModelForm):
+    """
+    Форма администрирования для управления тегами
+
+    Предоставляет интерфейс для создания и редактирования тегов с
+    автоматической генерацией slug при необходимости.
+
+    Особенности:
+    - Автоматическая генерация slug
+    - Валидация уникальности slug
+    - Возможность ручного указания slug
+    """
+    class Meta:
+        """
+        Мета-информация формы
+
+        Определяет модель и поля, используемые в форме.
+        """
+        model = Tag
+        fields = ['name', 'slug']
+
+    def __init__(self, *args, **kwargs):
+        """
+        Инициализация формы
+
+        Настраивает поля формы:
+        - Делает поле slug необязательным
+        - Устанавливает подсказку о автоматической генерации
+        """
+        super().__init__(*args, **kwargs)
+        self.fields['slug'].required = False
+        self.fields['slug'].help_text = Warnings.TAG_SLUG_AUTO_GENERATE
+
+    def clean(self):
+        """
+        Общая валидация формы
+
+        Проверяет данные формы и генерирует slug, если он не был указан.
+
+        Возвращает:
+        - Очищенные и валидные данные формы
+        """
+        cleaned_data = super().clean()
+        name = cleaned_data.get('name')
+        slug = cleaned_data.get('slug')
+
+        if not slug:
+            cleaned_data['slug'] = generate_unique_slug(name, Tag)
+
+        return cleaned_data
+
+    def clean_slug(self):
+        """
+        Валидация поля slug
+
+        Проверяет уникальность slug в базе данных, исключая текущий экземпляр.
+
+        Возвращает:
+            Валидный slug
+
+        Вызывает:
+            ValidationError: если slug уже существует
+        """
+        slug = self.cleaned_data.get('slug')
+        if slug:
+            if Tag.objects.filter(
+                slug=slug
+            ).exclude(
+                pk=self.instance.pk
+            ).exists():
+                raise ValidationError(Warnings.TAG_SLUG_ALREADY_EXISTS)
+        return slug
+
+
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
     """
-    Административный интерфейс для управления тегами рецептов
+    Административный интерфейс для управления тегами
 
-    Позволяет создавать, редактировать и управлять тегами для категоризации
-    рецептов.
+    Предоставляет функционал для управления тегами рецептов в админ-панели.
 
-    Атрибуты:
+    Характеристики:
+    - form: кастомная форма для работы с тегами
     - list_display: поля для отображения (название и slug)
     - search_fields: поиск по названию тега
-    - readonly_fields: поля только для чтения (slug)
-    - prepopulated_fields: автоматическое заполнение slug на основе названия
     - empty_value_display: значение для пустых полей
     - fieldsets: структура формы
     """
-    list_display = ('name', 'slug')
-    search_fields = ('name',)
-    readonly_fields = ('slug',)
-    prepopulated_fields = {'slug': ('name',)}
+    form = TagAdminForm
+    list_display = ['name', 'slug']
+    search_fields = ['name', 'slug']
     empty_value_display = ADMIN_EMPTY_VALUE
     fieldsets = (
         (None, {
-            'fields': ('name',)
+            'fields': ['name', 'slug']
         }),
     )
 

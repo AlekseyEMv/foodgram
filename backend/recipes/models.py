@@ -4,7 +4,6 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MinLengthValidator
 from django.db import models as ms
 from django.urls import reverse
-from django.utils.text import slugify
 
 from api.validators import create_min_amount_validator, validate_picture_format
 from foodgram_backend.settings import (ADMIN_MAX_LENGTH, INGREDIENT_MAX_LENGTH,
@@ -12,6 +11,8 @@ from foodgram_backend.settings import (ADMIN_MAX_LENGTH, INGREDIENT_MAX_LENGTH,
                                        MIN_COOKING_TIME, RECIPE_MAX_LENGTH,
                                        RECIPE_MIN_LENGTH, TAG_MAX_LENGTH,
                                        UNIT_MAX_LENGTH)
+
+from .utils import generate_unique_slug
 
 # Валидатор для изображений рецептов с заданным максимальным размером.
 validate_recipe_image = partial(
@@ -60,9 +61,16 @@ class Ingredient(ms.Model):
 
 class Tag(ms.Model):
     """
-    Модель тега
+    Модель тега для категоризации рецептов
 
-    Используется для категоризации рецептов.
+    Представляет собой сущность, используемую для тегирования и категоризации
+    рецептов в системе. Каждый тег имеет уникальное имя и автоматически
+    генерируемый slug.
+
+    Основные характеристики:
+    - Уникальность имени и slug
+    - Автоматическая генерация slug на основе имени
+    - Возможность категоризации рецептов
     """
     name = ms.CharField(
         max_length=TAG_MAX_LENGTH,
@@ -81,7 +89,10 @@ class Tag(ms.Model):
         """
         Мета-информация модели
 
-        Определяет название в админке и порядок сортировки
+        Определяет настройки отображения и поведения модели:
+        - Название в админ-панели
+        - Порядок сортировки
+        - Уникальные ограничения
         """
         verbose_name = 'Тег'
         verbose_name_plural = 'Теги'
@@ -91,27 +102,26 @@ class Tag(ms.Model):
         """
         Строковое представление объекта
 
-        Возвращает имя тега
+        Возвращает название тега для удобного отображения
+        в интерфейсе администратора и других представлениях.
+
+        Возвращает:
+        - Название тега
         """
         return self.name
 
     def save(self, *args, **kwargs):
         """
-        Переопределенный метод сохранения объекта
-        Генерирует уникальный slug на основе имени тега
+        Метод сохранения объекта
+
+        Переопределенный метод для автоматической генерации slug
+        при создании или обновлении тега.
+
+        Если slug не был установлен вручную, генерируется уникальный
+        slug на основе имени тега.
         """
         if not self.slug:
-            original_slug = slugify(self.name)
-            slug = original_slug
-            num = 1
-
-            # Проверяем уникальность slug
-            while Tag.objects.filter(slug=slug).exists():
-                slug = f"{original_slug}-{num}"
-                num += 1
-
-            self.slug = slug
-
+            self.slug = generate_unique_slug(self.name, Tag)
         super().save(*args, **kwargs)
 
 
