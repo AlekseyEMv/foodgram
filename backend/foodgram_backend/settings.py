@@ -200,7 +200,7 @@ USERNAME_MAX_LENGTH = 150
 USERNAME_REGEX = r'^[\w.@+-]+$'
 
 # Список запрещенных ников пользователей.
-FORBIDDEN_USERNAMES = ['me',]
+FORBIDDEN_USERNAMES = ['me']
 
 # Минимальная длина пароля.
 MIN_PASSWORD_LEN = 8
