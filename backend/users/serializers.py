@@ -1,20 +1,20 @@
 from functools import partial
 
+from django.conf import settings as stgs
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.conf import settings as stgs
 from djoser.serializers import UserSerializer
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers as ss
 from rest_framework.validators import UniqueValidator
 
-from foodgram_backend.messages import Warnings as Warn
-from .models import Follow
-
 from api.validators import (validate_picture_format,
                             validate_username_characters,
                             validate_username_not_me)
+from foodgram_backend.messages import Warnings as Warn
+
+from .models import Follow
 
 User = get_user_model()
 
