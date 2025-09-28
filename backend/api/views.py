@@ -23,6 +23,9 @@ from rest_framework.views import APIView
 
 from foodgram_backend.messages import Warnings as Warn
 from recipes.models import Ingredient, IngredientRecipe, Recipe, Tag
+from recipes.serializers import (FavoriteSerializer, IngredientsSerializer,
+                                 RecipesGetSerializer, RecipesSerializer,
+                                 ShoppingAddSerializer, TagsReadSerializer)
 from users.models import Follow
 from users.serializers import (AvatarSerializer, CustomUserCreateSerializer,
                                CustomUserSerializer, SetPasswordSerializer,
@@ -34,9 +37,6 @@ from .pagination import CustomPagination
 from .permissions import (IsAuthenticatedAndActive,
                           IsAuthenticatedAndActiveAndAuthorOrCreateOrReadOnly,
                           IsAuthenticatedAndActiveOrReadOnly)
-from recipes.serializers import (FavoriteSerializer, IngredientsSerializer,
-                                 RecipesGetSerializer, RecipesSerializer,
-                                 ShoppingAddSerializer, TagsReadSerializer)
 
 User = get_user_model()
 
