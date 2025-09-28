@@ -54,6 +54,15 @@ class Warnings:
     TAGS_NOT_FOUND = 'В рецепте не найдены теги'
     TAGS_REQUIRED = 'Теги не могут быть пустыми'
     USER_EMAIL_EXISTS = 'Пользователь с таким email уже существует'
+    USER_NICKNAME_RULES = (
+        'Ник пользователя может состоять из букв, цифр, а также символов @.+-_'
+    )
     USER_NOT_FOUND = 'Пользователь не найден'
     USERNAME_EXISTS = 'Логин уже занято'
     USERNAME_REQUIRED = 'Укажите логин пользователя'
+    VALUE_MIN_MAX_ORDER_ERROR = (
+        'Минимальное значение не может быть больше максимального'
+    )
+    VALUE_MUST_BE_BETWEEN = 'Значение должно быть строго между'
+    VALUE_MUST_BE_IN_RANGE = 'Значение должно быть в диапазоне'
+    VALUE_MUST_BE_NUMERIC = 'Следующее значения должны быть числом'

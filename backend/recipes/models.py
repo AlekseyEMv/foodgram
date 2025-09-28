@@ -1,23 +1,34 @@
 from functools import partial
 
+from django.conf import settings as stgs
 from django.contrib.auth import get_user_model
 from django.core.validators import MinLengthValidator
 from django.db import models as ms
 from django.urls import reverse
 
-from api.validators import create_min_amount_validator, validate_picture_format
-from foodgram_backend.settings import (ADMIN_MAX_LENGTH, INGREDIENT_MAX_LENGTH,
-                                       INGRIGIENTS_MIN_VALUE, MAX_FILE_SIZE,
-                                       MIN_COOKING_TIME, RECIPE_MAX_LENGTH,
-                                       RECIPE_MIN_LENGTH, TAG_MAX_LENGTH,
-                                       UNIT_MAX_LENGTH)
+from api.validators import validate_picture_format, validate_value_interval
 
 from .utils import generate_unique_slug
 
 # Валидатор для изображений рецептов с заданным максимальным размером.
 validate_recipe_image = partial(
-    validate_picture_format, max_file_size=MAX_FILE_SIZE
+    validate_picture_format, max_file_size=stgs.MAX_FILE_SIZE
 )
+
+# Валидатор для проверки количества ингридиентов в заданном интервале
+validate_amount_interval = partial(
+    validate_value_interval,
+    min_value=stgs.MIN_AMOUNT_VALUE,
+    max_value=stgs.MAX_AMOUNT_VALUE
+)
+
+# Валидатор для проверки времени приготовления в заданном интервале
+validate_coocking_time_interval = partial(
+    validate_value_interval,
+    min_value=stgs.MIN_COOKING_TIME,
+    max_value=stgs.MAX_COOKING_TIME
+)
+
 
 User = get_user_model()
 
@@ -30,12 +41,12 @@ class Ingredient(ms.Model):
     и единицу измерения.
     """
     name = ms.CharField(
-        max_length=INGREDIENT_MAX_LENGTH,
+        max_length=stgs.INGREDIENT_MAX_LENGTH,
         verbose_name='Название',
         help_text='Название ингредиента'
     )
     measurement_unit = ms.CharField(
-        max_length=UNIT_MAX_LENGTH,
+        max_length=stgs.UNIT_MAX_LENGTH,
         verbose_name='Единица измерения',
         help_text='Единицы измерения (грамм, литр, штука и т.д.)'
     )
@@ -73,13 +84,13 @@ class Tag(ms.Model):
     - Возможность категоризации рецептов
     """
     name = ms.CharField(
-        max_length=TAG_MAX_LENGTH,
+        max_length=stgs.TAG_MAX_LENGTH,
         unique=True,
         verbose_name='Имя',
         help_text='Название тега'
     )
     slug = ms.SlugField(
-        max_length=TAG_MAX_LENGTH,
+        max_length=stgs.TAG_MAX_LENGTH,
         unique=True,
         verbose_name='Идентификатор',
         help_text='Автоматически генерируемый идетификатор на основе названия'
@@ -138,12 +149,13 @@ class Recipe(ms.Model):
         help_text='Автор рецепта'
     )
     name = ms.CharField(
-        max_length=RECIPE_MAX_LENGTH,
+        max_length=stgs.RECIPE_MAX_LENGTH,
         verbose_name='Название',
         validators=[
             MinLengthValidator(
-                RECIPE_MIN_LENGTH,
-                f'Название должно быть не менее {RECIPE_MIN_LENGTH} символов.'
+                stgs.RECIPE_MIN_LENGTH,
+                'Название должно быть не менее '
+                f'{stgs.RECIPE_MIN_LENGTH} символов.'
             )
         ],
         help_text='Название рецепта'
@@ -170,8 +182,8 @@ class Recipe(ms.Model):
         help_text='Tеги для категоризации рецепта'
     )
     cooking_time = ms.PositiveSmallIntegerField(
-        default=MIN_COOKING_TIME,
-        validators=[create_min_amount_validator(MIN_COOKING_TIME)],
+        default=stgs.MIN_COOKING_TIME,
+        validators=[validate_coocking_time_interval],
         verbose_name='Время приготовления (минуты)',
         help_text='Время приготовления рецепта в минутах'
     )
@@ -198,7 +210,7 @@ class Recipe(ms.Model):
 
         Возвращает название рецепта с ограничением по длине
         """
-        return self.name[:ADMIN_MAX_LENGTH]
+        return self.name[:stgs.ADMIN_MAX_LENGTH]
 
     def get_absolute_url(self):
         """
@@ -228,8 +240,8 @@ class IngredientRecipe(ms.Model):
         help_text='Рецепт, к которому относится ингредиент'
     )
     amount = ms.PositiveSmallIntegerField(
-        default=INGRIGIENTS_MIN_VALUE,
-        validators=[create_min_amount_validator(INGRIGIENTS_MIN_VALUE)],
+        default=stgs.MIN_AMOUNT_VALUE,
+        validators=[validate_amount_interval],
         verbose_name='Количество',
         help_text=(
             'Количество ингредиента в рецепте, которое '

@@ -1,10 +1,10 @@
 import io
 import os
-from collections import defaultdict
 
-from django.conf import settings
+from django.conf import settings as stgs
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db.models import Sum
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -12,6 +12,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
+from rest_framework import serializers as ss
 from rest_framework import status
 from rest_framework import viewsets as vs
 from rest_framework.decorators import action
@@ -20,12 +21,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from foodgram_backend.messages import Warnings
-from foodgram_backend.settings import (PDF_DOCUMENT_HEADER, PDF_FILENAME_NAME,
-                                       PDF_HEADER_FONT_SIZE, PDF_HEADER_MARGIN,
-                                       PDF_PAGE_MARGIN, PDF_TEXT_FONT_SIZE)
-from recipes.models import Ingredient, Recipe, Shopping, Tag
+from foodgram_backend.messages import Warnings as Warn
+from recipes.models import Ingredient, IngredientRecipe, Recipe, Tag
 from users.models import Follow
+from users.serializers import (AvatarSerializer, CustomUserCreateSerializer,
+                               CustomUserSerializer, SetPasswordSerializer,
+                               SubscribeSerializer, SubscriptionsSerializer)
 
 from .filters import IngredientFilter, RecipeFilter
 from .mixins import RecipeActionMixin
@@ -33,12 +34,9 @@ from .pagination import CustomPagination
 from .permissions import (IsAuthenticatedAndActive,
                           IsAuthenticatedAndActiveAndAuthorOrCreateOrReadOnly,
                           IsAuthenticatedAndActiveOrReadOnly)
-from .serializers import (AvatarSerializer, CustomUserCreateSerializer,
-                          CustomUserSerializer, FavoriteSerializer,
-                          IngredientsSerializer, RecipesGetSerializer,
-                          RecipesSerializer, SetPasswordSerializer,
-                          ShoppingAddSerializer, SubscribeSerializer,
-                          SubscriptionsSerializer, TagsReadSerializer)
+from recipes.serializers import (FavoriteSerializer, IngredientsSerializer,
+                                 RecipesGetSerializer, RecipesSerializer,
+                                 ShoppingAddSerializer, TagsReadSerializer)
 
 User = get_user_model()
 
@@ -47,67 +45,92 @@ class ShoppingPDFView(APIView):
     """
     API-представление для генерации PDF-файла со списком покупок
 
-    Класс предоставляет эндпоинт для создания PDF-документа, содержащего
+    Эндпоинт предоставляет возможность создания PDF-документа, содержащего
     агрегированный список ингредиентов из всех рецептов, добавленных
-    пользователем в список покупок. PDF-файл включает суммарное количество
-    каждого ингредиента, необходимого для приготовления всех выбранных блюд.
+    пользователем в список покупок. Документ включает суммарное количество
+    каждого ингредиента, необходимого для приготовления выбранных блюд.
     """
     permission_classes = (IsAuthenticatedAndActive,)
 
     def get(self, request):
         """
-        Получение PDF-файла со списком покупок
+        Обработчик GET-запроса для генерации PDF-файла
 
-        Обрабатывает GET-запрос, собирает все рецепты из списка покупок
-        пользователя, агрегирует ингредиенты и генерирует PDF-документ.
+        Метод получает список рецептов из корзины пользователя, агрегирует
+        ингредиенты и их количество, генерирует PDF-документ и возвращает
+        его в виде HTTP-ответа.
 
-        Параметры:
-        - request: объект входящего HTTP-запроса
-
-        Возвращаемые значения:
-        - 200 OK: PDF-файл со списком покупок
-        - 204 NO CONTENT: если список покупок пуст
-        - 500 INTERNAL SERVER ERROR: при ошибке генерации PDF
+        Возвращает:
+        - 200 OK: PDF-файл с списком покупок
+        - 204 No Content: Список покупок пуст
+        - 404 Not Found: Рецепты не найдены
+        - 500 Internal Server Error: Внутренняя ошибка сервера
         """
-        shoppings = Shopping.objects.filter(user=request.user)
-        recipes = [s.recipe for s in shoppings]
-        ingredients_dict = defaultdict(int)
-        for recipe in recipes:
-            for ingredient_recipe in recipe.ingredientrecipe_set.all():
-                ingredients_dict[
-                    ingredient_recipe.ingredient
-                ] += ingredient_recipe.amount
-
-        if not ingredients_dict:
-            return Response(
-                {'detail': Warnings.SHOPPING_LIST_EMPTY},
-                status=status.HTTP_204_NO_CONTENT
+        try:
+            shopping_recipes = (
+                request.user.shopping_user_set.all().values_list(
+                    'recipe_id', flat=True
+                )
             )
 
-        try:
-            pdf_buffer = self.generate_pdf(ingredients_dict)
+            ingredients_data = (
+                IngredientRecipe.objects
+                .select_related('ingredient')
+                .filter(recipe_id__in=shopping_recipes)
+                .values(
+                    'ingredient__name',
+                    'ingredient__measurement_unit'
+                )
+                .annotate(total_amount=Sum('amount'))
+                .order_by('ingredient__name')
+            )
+
+            ingredients_list = [
+                {
+                    'name': ingredient['ingredient__name'],
+                    'amount': ingredient['total_amount'],
+                    'unit': ingredient['ingredient__measurement_unit'],
+                }
+                for ingredient in ingredients_data
+            ]
+
+            if not ingredients_list:
+                return Response(
+                    {'detail': Warn.SHOPPING_LIST_EMPTY},
+                    status=status.HTTP_204_NO_CONTENT
+                )
+
+            pdf_buffer = self.generate_pdf(ingredients_list)
             return self.create_pdf_response(pdf_buffer)
+
+        except IngredientRecipe.DoesNotExist:
+            return Response(
+                {'error': Warn.RECIPE_NOT_FOUND},
+                status=status.HTTP_404_NOT_FOUND
+            )
         except Exception as e:
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def generate_pdf(self, ingredients_dict):
+    def generate_pdf(self, ingredients):
         """
         Генерация PDF-документа со списком ингредиентов
 
-        Создает PDF-файл, содержащий агрегированный список всех ингредиентов
-        из выбранных рецептов с указанием общего количества каждого
-        ингредиента.
+        Метод создает PDF-документ с форматированным списком ингредиентов,
+        включая их названия, количество и единицы измерения.
 
         Параметры:
-        - ingredients_dict: словарь с ингредиентами и их суммарным количеством
+        - ingredients: Список словарей с данными об ингредиентах
+            - name: Название ингредиента
+            - amount: Количество ингредиента
+            - unit: Единица измерения
 
-        Возвращаемое значение:
-        - BytesIO: буфер с сгенерированным PDF-документом
+        Возвращает:
+        - BytesIO: Буфер с сгенерированным PDF-документом
         """
-        fonts_path = os.path.join(settings.BASE_DIR, 'fonts')
+        fonts_path = os.path.join(stgs.BASE_DIR, 'fonts')
         try:
             pdfmetrics.registerFont(
                 TTFont(
@@ -116,31 +139,39 @@ class ShoppingPDFView(APIView):
             )
         except Exception as e:
             raise ValidationError(
-                f'{Warnings.FONT_REGISTRATION_ERROR} {str(e)}'
+                f'{Warn.FONT_REGISTRATION_ERROR} {str(e)}'
             )
 
         buffer = io.BytesIO()
         pdf = canvas.Canvas(buffer, pagesize=letter)
         _, height = letter
 
-        pdf.setFont('DejaVuSans', PDF_HEADER_FONT_SIZE)
+        pdf.setFont('DejaVuSans', stgs.PDF_HEADER_FONT_SIZE)
         pdf.drawString(
-            PDF_HEADER_MARGIN, height - PDF_PAGE_MARGIN, PDF_DOCUMENT_HEADER
+            stgs.PDF_HEADER_MARGIN,
+            height - stgs.PDF_PAGE_MARGIN,
+            stgs.PDF_DOCUMENT_HEADER
         )
 
-        y = height - PDF_HEADER_MARGIN
-        pdf.setFont('DejaVuSans', PDF_TEXT_FONT_SIZE)
+        y = height - stgs.PDF_HEADER_MARGIN
+        pdf.setFont('DejaVuSans', stgs.PDF_TEXT_FONT_SIZE)
 
-        for ingredient, amount in ingredients_dict.items():
-            pdf.drawString(
-                PDF_PAGE_MARGIN,
-                y,
-                f'- {ingredient.name}: {amount} {ingredient.measurement_unit}'
+        for ingredient in ingredients:
+            line = (
+                f'- {ingredient["name"]}: '
+                f'{ingredient["amount"]} {ingredient["unit"]}'
             )
-            y -= 20
-            if y < PDF_PAGE_MARGIN:
+
+            pdf.drawString(
+                stgs.PDF_PAGE_MARGIN,
+                y,
+                line
+            )
+            y -= stgs.PDF_LINE_SPACING
+
+            if y < stgs.PDF_PAGE_MARGIN:
                 pdf.showPage()
-                y = height - PDF_PAGE_MARGIN
+                y = height - stgs.PDF_PAGE_MARGIN
 
         pdf.save()
         buffer.seek(0)
@@ -161,7 +192,7 @@ class ShoppingPDFView(APIView):
         return FileResponse(
             buffer,
             as_attachment=True,
-            filename=PDF_FILENAME_NAME,
+            filename=stgs.PDF_FILENAME_NAME,
             content_type='application/pdf'
         )
 
@@ -284,7 +315,7 @@ class RecipesViewSet(vs.ModelViewSet, RecipeActionMixin):
             pk,
             'shopping_recipe_set',
             ShoppingAddSerializer,
-            Warnings.RECIPE_IN_SHOPPING_CART_EXISTS
+            Warn.RECIPE_IN_SHOPPING_CART_EXISTS
         )
 
     @action(
@@ -312,7 +343,7 @@ class RecipesViewSet(vs.ModelViewSet, RecipeActionMixin):
             pk,
             'favorite_recipe_set',
             FavoriteSerializer,
-            Warnings.RECIPE_IN_FAVORITE_EXISTS
+            Warn.RECIPE_IN_FAVORITE_EXISTS
         )
 
     @action(
@@ -491,7 +522,8 @@ class UserProfileViewSet(vs.ModelViewSet):
                     data={'author': author.pk},
                     context={'request': request, 'view': self}
                 )
-                if serializer.is_valid():
+                try:
+                    serializer.is_valid(raise_exception=True)
                     serializer.save()
                     response_serializer = SubscriptionsSerializer(
                         author,
@@ -501,10 +533,11 @@ class UserProfileViewSet(vs.ModelViewSet):
                         response_serializer.data,
                         status=status.HTTP_201_CREATED
                     )
-                return Response(
-                    serializer.errors,
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                except ss.ValidationError as e:
+                    return Response(
+                        e.detail,
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
             elif request.method == 'DELETE':
                 try:
@@ -512,33 +545,28 @@ class UserProfileViewSet(vs.ModelViewSet):
                         user=request.user,
                         author=author
                     )
-                    if subscription.user != request.user:
-                        return Response(
-                            {'detail': Warnings.SUBSCRIPTION_DELETE_FORBIDDEN},
-                            status=status.HTTP_403_FORBIDDEN
-                        )
                     subscription.delete()
                     return Response(status=status.HTTP_204_NO_CONTENT)
                 except Follow.DoesNotExist:
                     return Response(
-                        {'detail': Warnings.SUBSCRIPTION_NOT_FOUND},
+                        {'detail': Warn.SUBSCRIPTION_NOT_FOUND},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
             return Response(
-                {'detail': Warnings.METHOD_NOT_ALLOWED},
+                {'detail': Warn.METHOD_NOT_ALLOWED},
                 status=status.HTTP_405_METHOD_NOT_ALLOWED
             )
 
         except Http404:
             return Response(
-                {'detail': Warnings.USER_NOT_FOUND},
+                {'detail': Warn.USER_NOT_FOUND},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         except Exception:
             return Response(
-                {'detail': Warnings.REQUEST_PROCESSING_ERROR},
+                {'detail': Warn.REQUEST_PROCESSING_ERROR},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -567,14 +595,20 @@ class SetPasswordView(APIView):
                 context={'request': request}
             )
 
-            if serializer.is_valid():
+            try:
+                serializer.is_valid(raise_exception=True)
                 user.set_password(serializer.validated_data['new_password'])
                 user.save()
                 return Response(status=status.HTTP_204_NO_CONTENT)
-            return Response(
-                serializer.errors, status=status.HTTP_400_BAD_REQUEST
-            )
+
+            except ss.ValidationError as e:
+                return Response(
+                    e.detail,
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         except Exception as e:
             return Response(
-                {'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

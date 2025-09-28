@@ -4,7 +4,7 @@ from django.db import transaction
 from rest_framework import status
 from rest_framework.response import Response
 
-from foodgram_backend.messages import Warnings
+from foodgram_backend.messages import Warnings as msg
 
 User = get_user_model()
 
@@ -46,7 +46,7 @@ class RecipeActionMixin:
             # Проверяем существование указанного отношения
             if not hasattr(recipe, relation_name):
                 return Response(
-                    {'detail': Warnings.RELATIONSHIP_NAME_ERROR},
+                    {'detail': msg.RELATIONSHIP_NAME_ERROR},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
@@ -79,18 +79,18 @@ class RecipeActionMixin:
                     relation.delete()
                     return Response(status=status.HTTP_204_NO_CONTENT)
                 return Response(
-                    {'detail': Warnings.OBJECT_NOT_FOUND},
+                    {'detail': msg.OBJECT_NOT_FOUND},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
         except recipe_class.DoesNotExist:
             return Response(
-                {'detail': Warnings.RECIPE_NOT_FOUND},
+                {'detail': msg.RECIPE_NOT_FOUND},
                 status=status.HTTP_404_NOT_FOUND
             )
         except User.DoesNotExist:
             return Response(
-                {'detail': Warnings.USER_NOT_FOUND},
+                {'detail': msg.USER_NOT_FOUND},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -100,7 +100,7 @@ class RecipeActionMixin:
             )
         except Exception:
             return Response(
-                {'detail': Warnings.REQUEST_PROCESSING_ERROR},
+                {'detail': msg.REQUEST_PROCESSING_ERROR},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

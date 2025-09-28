@@ -180,11 +180,18 @@ INGREDIENT_MAX_LENGTH = 128
 # Максимальная длина названия единицы измерения ингридиента.
 UNIT_MAX_LENGTH = 64
 
-# Минимальное количество ингридиентов в рецепте.
+# Минимальное и максимальное допустимые числовые значения
+MIN_NUMERIC_VALUE = 1
+MAX_NUMERIC_VALUE = 32000
+
+# Минимальное и максимальное количество ингридиентов в рецепте.
+MIN_AMOUNT_VALUE = MIN_NUMERIC_VALUE
+MAX_AMOUNT_VALUE = MAX_NUMERIC_VALUE
 INGRIGIENTS_MIN_VALUE = 1
 
-# Минимальное время приготовления (в минутах)
-MIN_COOKING_TIME = 1
+# Минимальное и максимальное время приготовления (в минутах)
+MIN_COOKING_TIME = MIN_NUMERIC_VALUE
+MAX_COOKING_TIME = MAX_NUMERIC_VALUE
 
 # Максимальная длина названия тега.
 TAG_MAX_LENGTH = 32
@@ -227,3 +234,7 @@ PDF_HEADER_MARGIN = 100
 # Размер шрифта в файле PDF-файл
 PDF_HEADER_FONT_SIZE = 16
 PDF_TEXT_FONT_SIZE = 12
+
+# Расстояние между строк в файле PDF-файл
+PDF_LINE_MARGIN = 8
+PDF_LINE_SPACING = PDF_TEXT_FONT_SIZE + PDF_LINE_MARGIN

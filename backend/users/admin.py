@@ -1,8 +1,7 @@
+from django.conf import settings as stgs
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.translation import gettext_lazy as _
-
-from foodgram_backend.settings import ADMIN_EMPTY_VALUE
 
 from .models import Follow, User
 
@@ -27,7 +26,7 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ('email', 'username', 'first_name', 'last_name')
     list_filter = ('is_staff', 'is_active', 'date_joined')
     ordering = ('-date_joined',)
-    empty_value_display = ADMIN_EMPTY_VALUE
+    empty_value_display = stgs.ADMIN_EMPTY_VALUE
     fieldsets = (
         (_('Основная информация'), {
             'fields': ('email', 'username', 'avatar')
@@ -64,7 +63,7 @@ class FollowAdmin(admin.ModelAdmin):
     search_fields = ('user__email', 'author__email')
     list_filter = ('sub_date',)
     ordering = ('-sub_date',)
-    empty_value_display = ADMIN_EMPTY_VALUE
+    empty_value_display = stgs.ADMIN_EMPTY_VALUE
     fieldsets = (
         (_('Участники подписки'), {
             'fields': ('user', 'author')

@@ -1,5 +1,6 @@
 from functools import partial
 
+from django.conf import settings as stgs
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models as ms
@@ -8,15 +9,13 @@ from django.utils.translation import gettext_lazy as _
 from api.validators import (validate_picture_format,
                             validate_username_characters,
                             validate_username_not_me)
-from foodgram_backend.messages import Warnings
-from foodgram_backend.settings import (AVATAR_MAX_SIZE, DEFAULT_VALUE,
-                                       EMAIL_MAX_LENGTH, USERNAME_MAX_LENGTH)
+from foodgram_backend.messages import Warnings as Warn
 
 from .managers import CreateUserManager
 
 # Валидатор для изображений аватаров с заданным максимальным размером.
 validate_avatar_picture = partial(
-    validate_picture_format, max_file_size=AVATAR_MAX_SIZE
+    validate_picture_format, max_file_size=stgs.AVATAR_MAX_SIZE
 )
 
 
@@ -31,17 +30,17 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
     email = ms.EmailField(
-        max_length=EMAIL_MAX_LENGTH,
+        max_length=stgs.EMAIL_MAX_LENGTH,
         unique=True,
         verbose_name=_('Почта'),
         error_messages={
-            'unique': Warnings.USER_EMAIL_EXISTS
+            'unique': Warn.USER_EMAIL_EXISTS
         },
         help_text='Уникальный email-адрес пользователя.'
     )
 
     username = ms.CharField(
-        max_length=USERNAME_MAX_LENGTH,
+        max_length=stgs.USERNAME_MAX_LENGTH,
         unique=True,
         validators=[
             validate_username_characters,
@@ -52,15 +51,15 @@ class User(AbstractUser):
     )
 
     first_name = ms.CharField(
-        max_length=USERNAME_MAX_LENGTH,
-        default=DEFAULT_VALUE,
+        max_length=stgs.USERNAME_MAX_LENGTH,
+        default=stgs.DEFAULT_VALUE,
         verbose_name=_('Имя'),
         help_text='Имя пользователя'
     )
 
     last_name = ms.CharField(
-        max_length=USERNAME_MAX_LENGTH,
-        default=DEFAULT_VALUE,
+        max_length=stgs.USERNAME_MAX_LENGTH,
+        default=stgs.DEFAULT_VALUE,
         verbose_name=_('Фамилия'),
         help_text='Фамилия пользователя'
     )
@@ -95,7 +94,7 @@ class User(AbstractUser):
         Проверяет обязательные поля first_name и last_name.
         """
         if not self.first_name or not self.last_name:
-            raise ValidationError(_(Warnings.NAME_SURNAME_REQUIRED))
+            raise ValidationError(_(Warn.NAME_SURNAME_REQUIRED))
 
     def __str__(self):
         """
@@ -160,7 +159,7 @@ class Follow(ms.Model):
         Проверяет, что пользователь не может подписаться сам на себя.
         """
         if self.user == self.author:
-            raise ValidationError(Warnings.SELF_SUBSCRIBE_FORBIDDEN)
+            raise ValidationError(Warn.SELF_SUBSCRIBE_FORBIDDEN)
 
     def save(self, *args, **kwargs):
         """

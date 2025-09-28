@@ -1,10 +1,10 @@
+from django.conf import settings as stgs
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.forms import ModelForm
 from django.utils.translation import gettext_lazy as _
 
 from foodgram_backend.messages import Warnings
-from foodgram_backend.settings import ADMIN_EMPTY_VALUE
 
 from .models import (Favorite, Ingredient, IngredientRecipe, Recipe, Shopping,
                      Tag)
@@ -33,7 +33,7 @@ class IngredientAdmin(admin.ModelAdmin):
     search_fields = ('name',)
     list_filter = ('measurement_unit',)
     ordering = ('name',)
-    empty_value_display = ADMIN_EMPTY_VALUE
+    empty_value_display = stgs.ADMIN_EMPTY_VALUE
     fieldsets = (
         (None, {
             'fields': ('name', 'measurement_unit')
@@ -132,7 +132,7 @@ class TagAdmin(admin.ModelAdmin):
     form = TagAdminForm
     list_display = ['name', 'slug']
     search_fields = ['name', 'slug']
-    empty_value_display = ADMIN_EMPTY_VALUE
+    empty_value_display = stgs.ADMIN_EMPTY_VALUE
     fieldsets = (
         (None, {
             'fields': ['name', 'slug']
@@ -184,7 +184,7 @@ class RecipeAdmin(admin.ModelAdmin):
     filter_horizontal = ('tags',)
     inlines = [IngredientRecipeInline]
     ordering = ('-pub_date',)
-    empty_value_display = ADMIN_EMPTY_VALUE
+    empty_value_display = stgs.ADMIN_EMPTY_VALUE
     fieldsets = (
         (_('Основная информация'), {
             'fields': ('name', 'author', 'image', 'text', 'cooking_time')
@@ -215,7 +215,7 @@ class FavoriteRecipeAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'recipe__name')
     list_filter = ('user',)
     readonly_fields = ('user', 'recipe')
-    empty_value_display = ADMIN_EMPTY_VALUE
+    empty_value_display = stgs.ADMIN_EMPTY_VALUE
 
 
 @admin.register(Shopping)
@@ -237,4 +237,4 @@ class ShoppingAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'recipe__name')
     list_filter = ('user',)
     readonly_fields = ('user', 'recipe')
-    empty_value_display = ADMIN_EMPTY_VALUE
+    empty_value_display = stgs.ADMIN_EMPTY_VALUE

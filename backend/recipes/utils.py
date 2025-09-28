@@ -25,7 +25,5 @@ def generate_unique_slug(name, model_class):
     while model_class.objects.filter(slug=slug).exists():
         slug = f'{original_slug}-{num}'
         num += 1
-        print(f"Конфликт с существующим slug, пробуем: {slug}")
 
-    print(f"Финальный сгенерированный slug: {slug}")
     return slug
