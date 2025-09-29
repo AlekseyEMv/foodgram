@@ -106,4 +106,5 @@ sudo docker-compose -f docker-compose.production.yml up -d
 
 ## Контактная информация
 * Репозиторий: [Foodgram](https://github.com/AlekseyEMv/foodgram)
+* Сайт: <https://foodgrammae.viewdns.net>
 * Автор: [AlekseyEMv](https://github.com/AlekseyEMv)
